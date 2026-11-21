@@ -68,8 +68,9 @@ class BravePageUrlService : AccessibilityService() {
     private var lastInspection = 0L
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.packageName?.toString() !in packages) return
-        if (event.eventType !in setOf(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+        val observedEvent = event ?: return
+        if (observedEvent.packageName?.toString() !in packages) return
+        if (observedEvent.eventType !in setOf(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
                 AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, AccessibilityEvent.TYPE_VIEW_FOCUSED,
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED)) return
         val now = SystemClock.elapsedRealtime()
