@@ -1,0 +1,74 @@
+name: Import FloatSaver ZIP
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'FloatSaver-Android-v*.zip'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Extract newest FloatSaver ZIP into repository root
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          from zipfile import ZipFile
+          import re
+          import shutil
+
+          archives = list(Path(".").glob("FloatSaver-Android-v*.zip"))
+          if not archives:
+              raise SystemExit("No FloatSaver-Android-v*.zip file found")
+          archive = max(archives, key=lambda p: tuple(map(int, re.findall(r"\d+", p.name))) or (0,))
+          print("Importing:", archive)
+
+          with ZipFile(archive) as zf:
+              members = zf.infolist()
+              if len(members) > 2000:
+                  raise SystemExit("Archive contains too many files")
+              total_size = sum(item.file_size for item in members)
+              if total_size > 50 * 1024 * 1024:
+                  raise SystemExit("Uncompressed archive exceeds 50 MiB")
+              common_root = archive.stem
+              for item in members:
+                  name = item.filename
+                  posix = PurePosixPath(name)
+                  if posix.is_absolute() or any(part in ("..", ".", "") for part in posix.parts):
+                      raise SystemExit("Unsafe ZIP member: " + name)
+                  parts = list(posix.parts)
+                  if parts and parts[0] == common_root:
+                      parts = parts[1:]
+                  if not parts:
+                      continue
+                  if parts[0] == ".git":
+                      raise SystemExit("ZIP must not contain Git internals")
+                  output = Path(*parts)
+                  if output.as_posix() == ".github/workflows/import-floatsaver-zip.yml":
+                      continue
+                  if item.is_dir():
+                      output.mkdir(parents=True, exist_ok=True)
+                  else:
+                      output.parent.mkdir(parents=True, exist_ok=True)
+                      with zf.open(item) as source, output.open("wb") as dest:
+                          shutil.copyfileobj(source, dest)
+          PY
+
+      - name: Commit extracted source files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Import FloatSaver source files from ZIP"
+            git push
+          else
+            echo "No changes to commit"
+          fi
