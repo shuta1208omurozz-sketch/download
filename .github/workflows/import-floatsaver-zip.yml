@@ -37,14 +37,15 @@ jobs:
               total_size = sum(item.file_size for item in members)
               if total_size > 50 * 1024 * 1024:
                   raise SystemExit("Uncompressed archive exceeds 50 MiB")
-              common_root = archive.stem
+              file_parts = [PurePosixPath(i.filename).parts for i in members if i.filename]
+              common_root = file_parts[0][0] if file_parts and all(p and p[0] == file_parts[0][0] for p in file_parts) else None
               for item in members:
                   name = item.filename
                   posix = PurePosixPath(name)
                   if posix.is_absolute() or any(part in ("..", ".", "") for part in posix.parts):
                       raise SystemExit("Unsafe ZIP member: " + name)
                   parts = list(posix.parts)
-                  if parts and parts[0] == common_root:
+                  if common_root and parts and parts[0] == common_root:
                       parts = parts[1:]
                   if not parts:
                       continue
