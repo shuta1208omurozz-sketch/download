@@ -42,7 +42,34 @@ object BrowserMediaScanner {
             el.querySelectorAll('source').forEach(source =>
               add(source.src, kind, playing, el.duration, el.currentTime, marked));
           });
+          // Common embedded media URLs are also stored on lazy-loaded player elements.
+          document.querySelectorAll('[data-video-src], [data-hls-src], [data-mpd-src], [data-media-url]').forEach((el, i) => {
+            if (i >= 45) return;
+            ['data-video-src','data-hls-src','data-mpd-src','data-media-url'].forEach(attr => {
+              add(el.getAttribute(attr), 'source-data');
+            });
+          });
           document.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player:stream"]').forEach(el => add(el.content, 'meta'));
+          // Schema.org VideoObject contentUrl is sometimes a direct playable file.
+          document.querySelectorAll('script[type="application/ld+json"]').forEach((el, i) => {
+            if (i > 10 || !el.textContent || el.textContent.length > 60000) return;
+            try {
+              const root = JSON.parse(el.textContent);
+              const visit = (obj, depth) => {
+                if (!obj || depth > 4 || items.length >= 220) return;
+                if (Array.isArray(obj)) { obj.slice(0,25).forEach(x => visit(x, depth+1)); return; }
+                if (typeof obj !== 'object') return;
+                const type = obj['@type'];
+                if (type === 'VideoObject' || (Array.isArray(type) && type.includes('VideoObject'))) {
+                  add(obj.contentUrl, 'jsonld');
+                  add(obj.embedUrl, 'iframe');
+                }
+                visit(obj['@graph'], depth+1);
+                visit(obj.mainEntity, depth+1);
+              };
+              visit(root, 0);
+            } catch(e) {}
+          });
           document.querySelectorAll('img').forEach((el, i) => { if (i < 180) add(el.currentSrc || el.src, 'image'); });
           document.querySelectorAll('a').forEach((el, i) => { if (i < 180) add(el.href, 'link'); });
           if (window.performance && performance.getEntriesByType) {

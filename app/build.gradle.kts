@@ -11,8 +11,8 @@ android {
         applicationId = "jp.example.floatsaver"
         minSdk = 29
         targetSdk = 35
-        versionCode = 7
-        versionName = "0.7-alpha"
+        versionCode = 8
+        versionName = "0.8-alpha"
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions {

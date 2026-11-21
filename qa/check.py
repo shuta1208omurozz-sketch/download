@@ -29,7 +29,7 @@ assert 'destroyProcessById' in (files / 'DownloadService.kt').read_text()
 assert 'container == CONTAINER_ORIGINAL || it.extension.equals(container, true)' in (files / 'MediaEngine.kt').read_text()
 assert 'choice.estimatedBytes == null' in (files / 'MainActivity.kt').read_text()
 assert 'runCatching { wm.addView(scroll, params) }' in (files / 'OverlayBubbleService.kt').read_text()
-assert 'versionCode = 6' in (root / 'app/build.gradle.kts').read_text()
+assert 'versionCode = 8' in (root / 'app/build.gradle.kts').read_text()
 browser = (files / 'BrowserActivity.kt').read_text()
 assert 'BrowserMediaScanner.script' in browser
 assert 'AdClassification.classify' in browser
@@ -41,4 +41,7 @@ assert (files / 'AdClassification.kt').exists()
 assert 'AdClassification.observe(' in browser
 assert 's.observedPlayingSamples >= 2' in (files / 'AdClassification.kt').read_text()
 assert 'historyId = history?.let' in (files / 'DownloadService.kt').read_text()
-print('Main features and v0.6 ad-check guards present')
+assert 'saveDirectVideo' in (files / 'MediaEngine.kt').read_text()
+assert 'BravePageUrlService.latestUrl()' in (files / 'OverlayBubbleService.kt').read_text()
+assert 'networkHint' in (files / 'BrowserActivity.kt').read_text()
+print('Main features and v0.8 detection, ease-of-use and ad guards present')

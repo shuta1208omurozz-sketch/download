@@ -181,7 +181,12 @@ class MainActivity : Activity() {
         if (selected >= 0) qualitySpinner.setSelection(selected)
         val gif = details?.isGif == true
         containerSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
-            if (gif) listOf("GIF（オリジナル）") else MediaEngine.VIDEO_CONTAINERS)
+            when {
+                gif -> listOf("GIF（オリジナル）")
+                details?.qualities?.any { it.formatSelector == "direct" } == true ->
+                    listOf("元の形式（直リンク）")
+                else -> MediaEngine.VIDEO_CONTAINERS
+            })
         downloadButton.isEnabled = activeChoices.isNotEmpty()
         selectionSection.visibility = if (details == null) View.GONE else View.VISIBLE
         updateSizeNote()

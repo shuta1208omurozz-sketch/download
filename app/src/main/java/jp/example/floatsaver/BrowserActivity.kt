@@ -109,11 +109,18 @@ class BrowserActivity : Activity() {
 
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val url = request?.url?.toString() ?: return null
-                val kind = DetectionRules.kind(url) ?: return null
+                val accept = request.requestHeaders.entries.firstOrNull {
+                    it.key.equals("Accept", ignoreCase = true)
+                }?.value
+                val kind = DetectionRules.networkHint(url, accept) ?: return null
                 val page = pageGeneration.get()
                 // Never proxy resource bytes; just observe URLs for likely media.
                 runOnUiThread {
-                    if (page == pageGeneration.get()) addCandidate(url, kind, "通信から検出", 2)
+                    if (page == pageGeneration.get()) {
+                        addCandidate(url, kind,
+                            if (DetectionRules.kind(url) != null) "通信から検出" else "動画の通信候補（要確認）",
+                            if (DetectionRules.kind(url) != null) 2 else 1)
+                    }
                 }
                 return null
             }
@@ -186,6 +193,8 @@ class BrowserActivity : Activity() {
                         "meta" -> 3
                         "resource" -> 2
                         "iframe" -> 1
+                        "jsonld" -> 3
+                        "source-data" -> 3
                         "image" -> 3
                         "link" -> 1
                         else -> 2
@@ -261,10 +270,10 @@ class BrowserActivity : Activity() {
         val adCount = candidates.count { verdict(it) == AdClassification.Verdict.AD_SUSPECT }
         val mainCount = candidates.count { verdict(it) == AdClassification.Verdict.MAIN_LIKELY }
         status.text = when {
-            candidates.isEmpty() -> "候補なし。動画を再生し、必要なら「再検出」を押してください。"
+            candidates.isEmpty() -> "まだ候補がありません。広告が終わって本編を再生し、「再生後に検出」を押してください。"
             mainCount > 0 -> "本編候補 ${mainCount}件（未確認）／広告の疑い ${adCount}件。保存前に内容を確認してください。"
             adCount > 0 -> "候補 ${candidates.size}件（広告の疑い ${adCount}件）。広告が終わって本編が始まったら再検出してください。"
-            else -> "候補 ${candidates.size}件。再生中のものを優先表示します。広告と本編は自動確定できません。"
+            else -> "候補 ${candidates.size}件。下の候補をタップすると画質選択へ進みます。広告と本編は未確定です。"
         }
         candidates.take(35).forEachIndexed { index, item ->
             val uri = android.net.Uri.parse(item.url)

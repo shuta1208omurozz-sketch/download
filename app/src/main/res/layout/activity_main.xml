@@ -19,7 +19,7 @@
             </LinearLayout>
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp" android:textSize="14sp"
-                android:textColor="#475569" android:text="Braveの「共有 → FloatSaver」からURLを送れます。直接検出は内蔵ブラウザを使用します。"/>
+                android:textColor="#475569" android:text="Braveで共有して動画を調べられます。見つからない場合は「再生して動画を探す」を押してください。"/>
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="1  動画のページを指定" android:textColor="#14213D"
                 android:textSize="17sp" android:textStyle="bold"/>
@@ -90,7 +90,7 @@
                 android:orientation="horizontal">
                 <Button android:id="@+id/browserButton" android:layout_width="0dp"
                     android:layout_height="48dp" android:layout_weight="1"
-                    android:text="内蔵ブラウザで検出"/>
+                    android:text="再生して動画を探す"/>
                 <Button android:id="@+id/historyButton" android:layout_width="0dp"
                     android:layout_height="48dp" android:layout_weight="1"
                     android:text="保存履歴"/>
