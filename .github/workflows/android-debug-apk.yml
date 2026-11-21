@@ -40,7 +40,7 @@ jobs:
           python3 qa/check-browser-js.py
 
       - name: Build debug APK
-        run: gradle --no-daemon --stacktrace :app:assembleDebug
+        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
 
       - name: Upload APK
         if: success()
