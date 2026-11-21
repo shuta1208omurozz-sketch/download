@@ -351,11 +351,25 @@ class OverlayBubbleService : Service() {
         }
         footer.addView(history, LinearLayout.LayoutParams(0, dp(48), 1f))
         val close = Button(this).apply {
-            text = "閉じる"
+            text = "小窓だけ閉じる"
             setOnClickListener { closePanel() }
         }
         footer.addView(close, LinearLayout.LayoutParams(0, dp(48), 1f))
         root.addView(footer)
+        // Separate "close panel" from "stop floating" so the user can dismiss
+        // the overlay without having to return to the main FloatSaver activity.
+        val stopFloating = Button(this).apply {
+            text = "フローティングを終了（↓も消す）"
+            isAllCaps = false
+            setTextColor(Color.WHITE)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.rgb(177, 45, 54))
+            minHeight = dp(52)
+            setOnClickListener {
+                // onDestroy() removes both the panel and the floating bubble.
+                stopSelf()
+            }
+        }
+        root.addView(stopFloating, LinearLayout.LayoutParams(-1, dp(52)))
         val scroll = ScrollView(this).apply { addView(root) }
         val params = WindowManager.LayoutParams(
             resources.displayMetrics.widthPixels - dp(24),
