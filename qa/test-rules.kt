@@ -18,6 +18,14 @@ fun main() {
     yes.forEach { (url, expected) -> check(DetectionRules.kind(url) == expected) { url } }
     val no = listOf("https://a.example/page", "https://a.example/cover.jpg", "https://a.example/video.m4s", "blob:https://example.org/xyz", "file:///movie.mp4", "https://a.example/segment.m4s", "https://a.example/playlist.txt")
     no.forEach { check(DetectionRules.kind(it) == null) { it } }
+    check(DetectionRules.directVideoExtension("https://cdn.example/clip.mp4?token=a") == "mp4")
+    check(DetectionRules.directVideoExtension("https://site.example/watch?format=mp4") == null)
+    check(DetectionRules.networkHint("https://site.example/hls/manifest", null) == "配信")
+    check(DetectionRules.networkHint("https://site.example/dash/manifest", null) == "配信")
+    check(DetectionRules.networkHint("https://site.example/page", "video/mp4") == "動画")
+    check(DetectionRules.networkHint("https://site.example/page", null) == null)
+    check(DetectionRules.kind("https://site.example/a.3gp") == "動画")
+    check(DetectionRules.kind("https://site.example/stream.m3u") == "配信")
     check(ErrorHints.describe(Exception("HTTP 403 https://site/?token=private")).contains("403"))
     check(!ErrorHints.describe(Exception("HTTP 403 https://site/?token=private")).contains("private"))
     val video = "https://cdn.example.org/film/main.mp4"

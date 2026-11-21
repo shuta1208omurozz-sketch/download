@@ -7,9 +7,35 @@ import java.util.Locale
 
 /** Pure Kotlin, conservative hints; no domain allowlist and no network interception. */
 object DetectionRules {
-    private val videoExtensions = setOf("mp4", "webm", "m4v", "mov", "mkv", "avi")
-    private val streamExtensions = setOf("m3u8", "mpd")
+    private val videoExtensions = setOf("mp4", "webm", "m4v", "mov", "mkv", "avi", "3gp", "flv", "ts")
+    private val streamExtensions = setOf("m3u8", "m3u", "mpd")
     private val queryKeys = setOf("mime", "type", "content-type", "response-content-type", "format", "ext", "filename", "file")
+
+    /** File extensions in the URL path only, never a 'format' query on a webpage. */
+    fun directVideoExtension(value: String): String? {
+        val uri = runCatching { URI(value.trim()) }.getOrNull() ?: return null
+        if (uri.scheme?.lowercase(Locale.ROOT) !in setOf("http", "https")) return null
+        if (uri.host.isNullOrBlank()) return null
+        val extension = uri.path.orEmpty().substringAfterLast('.', "").lowercase(Locale.ROOT)
+        return extension.takeIf { it in videoExtensions }
+    }
+
+    /** Lightly infer extensionless *network* requests; never call these confirmed videos. */
+    fun networkHint(value: String, accept: String?): String? {
+        kind(value)?.let { return it }
+        val uri = runCatching { URI(value.trim()) }.getOrNull() ?: return null
+        if (uri.scheme?.lowercase(Locale.ROOT) !in setOf("http", "https")) return null
+        if (uri.host.isNullOrBlank()) return null
+        val mime = accept.orEmpty().lowercase(Locale.ROOT)
+        if (mime.contains("application/vnd.apple.mpegurl") ||
+            mime.contains("application/x-mpegurl") ||
+            mime.contains("application/dash+xml")) return "配信"
+        if (mime.contains("video/") && !mime.contains("text/html")) return "動画"
+        val path = uri.path.orEmpty().lowercase(Locale.ROOT).trimEnd('/')
+        if (path.endsWith("/hls/manifest") || path.endsWith("/dash/manifest") ||
+            path.endsWith("/hls/playlist") || path.endsWith("/dash/playlist")) return "配信"
+        return null
+    }
 
     /** Returns GIF / 動画 / 配信, or null. Does not treat individual HLS fragments as full videos. */
     fun kind(value: String): String? {

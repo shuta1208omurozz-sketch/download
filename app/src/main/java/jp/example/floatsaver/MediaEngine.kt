@@ -107,6 +107,76 @@ object MediaEngine {
 
     fun isDirectGif(url: String): Boolean = DetectionRules.kind(url) == "GIF"
 
+    /** A plain media-file URL can be saved without involving a webpage extractor. */
+    private fun probeDirectVideo(url: String, referer: String?, agent: String?): MediaDetails? {
+        val ext = DetectionRules.directVideoExtension(url) ?: return null
+        val connection = URL(url).openConnection() as HttpURLConnection
+        connection.requestMethod = "HEAD"
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+        applyHeaders(connection, referer, agent)
+        return try {
+            val code = connection.responseCode
+            val type = connection.contentType.orEmpty().substringBefore(';').trim().lowercase(Locale.ROOT)
+            if (code !in 200..299 ||
+                !(type.startsWith("video/") || type == "application/octet-stream" ||
+                    type == "binary/octet-stream")) null
+            else {
+                val rawName = Uri.parse(url).lastPathSegment.orEmpty()
+                    .substringBefore('?').take(90).ifBlank { "video.$ext" }
+                MediaDetails(rawName, null,
+                    listOf(QualityChoice("元の画質（.$ext）", "direct", connection.contentLengthLong.takeIf { it > 0 })),
+                    false)
+            }
+        } finally { connection.disconnect() }
+    }
+
+    private fun saveDirectVideo(
+        url: String, output: File, referer: String?, userAgent: String?,
+        isCancelled: () -> Boolean, onProgress: (Int) -> Unit
+    ) {
+        val ext = DetectionRules.directVideoExtension(url) ?: error("動画ファイルのURLではありません")
+        val connection = URL(url).openConnection() as HttpURLConnection
+        connection.connectTimeout = 15000
+        connection.readTimeout = 30000
+        applyHeaders(connection, referer, userAgent)
+        try {
+            if (connection.responseCode !in 200..299) error("HTTP ${connection.responseCode}")
+            val type = connection.contentType.orEmpty().substringBefore(';').trim().lowercase(Locale.ROOT)
+            if (type.startsWith("text/") || type.contains("html") || type.contains("json") ||
+                (type.isNotEmpty() && !type.startsWith("video/") &&
+                    type !in setOf("application/octet-stream", "binary/octet-stream"))) {
+                error("動画ではないレスポンスです")
+            }
+            val total = connection.contentLengthLong
+            connection.inputStream.use { input ->
+                output.outputStream().use { destination ->
+                    val buffer = ByteArray(64 * 1024)
+                    var countBytes = 0L
+                    var first = true
+                    while (true) {
+                        check(!isCancelled()) { "保存を中断しました" }
+                        val count = input.read(buffer)
+                        if (count == -1) break
+                        if (first) {
+                            first = false
+                            val sample = String(buffer, 0, count.coerceAtMost(64), Charsets.ISO_8859_1)
+                                .trimStart().lowercase(Locale.ROOT)
+                            if (sample.startsWith("<!doctype") || sample.startsWith("<html") ||
+                                sample.startsWith("{\"error\"") || sample.startsWith("<?xml")) {
+                                error("動画ではないレスポンスです")
+                            }
+                        }
+                        destination.write(buffer, 0, count)
+                        countBytes += count
+                        if (total > 0) onProgress(((countBytes * 100) / total).toInt().coerceIn(0, 99))
+                    }
+                }
+            }
+            require(output.length() > 0) { "動画ファイルが空です" }
+        } finally { connection.disconnect() }
+    }
+
     private data class GifProbe(val bytes: Long?)
 
     // Some sites serve GIFs from extensionless endpoints. HEAD is advisory only:
@@ -137,6 +207,9 @@ object MediaEngine {
             val name = rawName.takeIf { it.endsWith(".gif", true) } ?: "animation.gif"
             return MediaDetails(name, null,
                 listOf(QualityChoice("GIF（元の画質）", "gif", gifProbe?.bytes)), true)
+        }
+        if (DetectionRules.directVideoExtension(url) != null) {
+            runCatching { probeDirectVideo(url, referer, userAgent) }.getOrNull()?.let { return it }
         }
         initialize(context)
         val request = YoutubeDLRequest(url)
@@ -304,6 +377,12 @@ object MediaEngine {
                     String(magic, Charsets.US_ASCII) in listOf("GIF87a", "GIF89a")) {
                     "GIFファイルではありません"
                 }
+            } else if (selector == "direct") {
+                require(container == CONTAINER_ORIGINAL) { "直リンクは元の形式で保存してください" }
+                val ext = DetectionRules.directVideoExtension(url)
+                    ?: error("動画ファイルのURLではありません")
+                file = File(staging, "video.$ext")
+                saveDirectVideo(url, file, referer, userAgent, isCancelled, onProgress)
             } else {
                 require(container in CONTAINER_KEYS) { "不明な保存形式です" }
                 initialize(context)
@@ -320,9 +399,21 @@ object MediaEngine {
                     request.addOption("--recode-video", container)
                 }
                 request.addOption("-o", File(staging, "%(title).80B_%(id)s.%(ext)s").absolutePath)
-                YoutubeDL.getInstance().execute(request, processId, { progress, _, _ ->
-                    onProgress(progress.toInt().coerceIn(0, 99))
-                })
+                fun executeDownload() = YoutubeDL.getInstance().execute(
+                    request, processId, { progress, _, _ ->
+                        onProgress(progress.toInt().coerceIn(0, 99))
+                    })
+                try {
+                    executeDownload()
+                } catch (first: Exception) {
+                    val msg = first.message.orEmpty().lowercase(Locale.ROOT)
+                    val extractFailure = listOf("signature", "nsig", "unable to extract",
+                        "player response").any { it in msg }
+                    if (!extractFailure || isCancelled() || !updateExtractorIfNeeded(context)) throw first
+                    // Do not retain partial outputs from a failed yt-dlp operation.
+                    staging.listFiles()?.forEach { runCatching { it.deleteRecursively() } }
+                    executeDownload()
+                }
                 val playable = setOf("mp4", "webm", "mkv", "mov", "m4v", "avi", "flv", "ts", "3gp")
                 val outputs = staging.walkTopDown()
                     .filter { it.isFile && it.length() > 0 &&
