@@ -8,6 +8,7 @@ on:
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle/**'
+      - 'qa/**'
       - '.github/workflows/android-debug-apk.yml'
   workflow_dispatch:
 
@@ -32,6 +33,11 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
+      - name: Validate XML, layout references, and media scanner
+        run: |
+          python3 qa/check.py
+          python3 qa/check-browser-js.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
