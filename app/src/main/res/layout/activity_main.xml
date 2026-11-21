@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#B20C1324">
+    <ScrollView android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_gravity="center"
+        android:layout_margin="12dp" android:background="@drawable/panel_background"
+        android:elevation="10dp" android:fillViewport="false">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:padding="18dp" android:orientation="vertical">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="FloatSaver" android:textSize="23sp"
+                    android:textColor="#14213D" android:textStyle="bold"/>
+                <Button android:id="@+id/closeButton" android:layout_width="wrap_content"
+                    android:layout_height="48dp" android:text="閉じる"/>
+            </LinearLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp" android:textSize="14sp"
+                android:textColor="#475569" android:text="Braveの「共有 → FloatSaver」からURLを送れます。直接検出は内蔵ブラウザを使用します。"/>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="1  動画のページを指定" android:textColor="#14213D"
+                android:textSize="17sp" android:textStyle="bold"/>
+            <EditText android:id="@+id/urlInput" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="5dp"
+                android:inputType="textUri" android:singleLine="true" android:minHeight="48dp"
+                android:hint="URLを入力・貼り付け" android:textColor="#14213D"/>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button android:id="@+id/pasteButton" android:layout_width="0dp"
+                    android:layout_height="48dp" android:layout_weight="1" android:text="貼り付け"/>
+                <Button android:id="@+id/analyzeButton" android:layout_width="0dp"
+                    android:layout_height="48dp" android:layout_weight="1" android:text="動画を調べる"/>
+            </LinearLayout>
+            <ProgressBar android:id="@+id/workingBar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent" android:layout_height="4dp"
+                android:indeterminate="true" android:visibility="gone"/>
+            <TextView android:id="@+id/statusText" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:padding="10dp"
+                android:layout_marginTop="6dp" android:background="#EFF5FF"
+                android:textSize="13sp" android:textColor="#334155"
+                android:text="URLを入力して「動画を調べる」を押してください。"/>
+            <LinearLayout android:id="@+id/selectionSection" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="vertical"
+                android:visibility="gone" android:layout_marginTop="13dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="2  画質と保存形式を選択" android:textSize="17sp"
+                    android:textStyle="bold" android:textColor="#14213D"/>
+                <TextView android:id="@+id/titleText" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="7dp"
+                    android:text="動画情報" android:textStyle="bold" android:textColor="#14213D"
+                    android:textSize="15sp"/>
+                <TextView android:id="@+id/durationText" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="3dp"
+                    android:text="再生時間: ー" android:textColor="#475569"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="9dp" android:text="容量の目安で絞り込む（任意）"
+                    android:textStyle="bold" android:textColor="#14213D"/>
+                <Spinner android:id="@+id/limitSpinner" android:layout_width="match_parent"
+                    android:layout_height="48dp"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="画質" android:textStyle="bold" android:textColor="#14213D"/>
+                <Spinner android:id="@+id/qualitySpinner" android:layout_width="match_parent"
+                    android:layout_height="48dp"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="保存形式" android:textStyle="bold" android:textColor="#14213D"/>
+                <Spinner android:id="@+id/containerSpinner" android:layout_width="match_parent"
+                    android:layout_height="48dp"/>
+                <TextView android:id="@+id/sizeNote" android:layout_width="match_parent"
+                    android:layout_height="wrap_content" android:layout_marginTop="5dp"
+                    android:textSize="12sp" android:textColor="#64748B"
+                    android:text="ファイルサイズは推定の場合があります。"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp" android:text="3  保存する"
+                    android:textSize="17sp" android:textStyle="bold" android:textColor="#14213D"/>
+                <Button android:id="@+id/downloadButton" android:layout_width="match_parent"
+                    android:layout_height="56dp" android:enabled="false"
+                    android:text="この設定でダウンロード"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="保存先：Download/FloatSaver   進捗は通知から確認できます"
+                    android:textSize="12sp" android:textColor="#64748B"/>
+            </LinearLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="14dp" android:text="ほかの操作" android:textColor="#14213D"
+                android:textStyle="bold"/>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <Button android:id="@+id/browserButton" android:layout_width="0dp"
+                    android:layout_height="48dp" android:layout_weight="1"
+                    android:text="内蔵ブラウザで検出"/>
+                <Button android:id="@+id/historyButton" android:layout_width="0dp"
+                    android:layout_height="48dp" android:layout_weight="1"
+                    android:text="保存履歴"/>
+            </LinearLayout>
+            <Button android:id="@+id/overlayButton" android:layout_width="match_parent"
+                android:layout_height="48dp" android:text="画面上にボタンを表示"/>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="3dp" android:textSize="12sp" android:textColor="#64748B"
+                android:text="※ 他アプリ内の動画を無断で監視しません。サイトや保護方式により保存できない場合があります。"/>
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

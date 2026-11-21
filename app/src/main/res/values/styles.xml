@@ -1,0 +1,16 @@
+<resources>
+  <style name="Theme.FloatSaver" parent="android:style/Theme.Material.Light.NoActionBar">
+    <item name="android:windowIsTranslucent">true</item>
+    <item name="android:windowBackground">@android:color/transparent</item>
+    <item name="android:windowActionModeOverlay">true</item>
+    <item name="android:fontFamily">sans</item>
+    <item name="android:colorAccent">#2563EB</item>
+    <item name="android:navigationBarColor">#141B29</item>
+  </style>
+  <style name="Theme.FloatSaver.Opaque" parent="android:style/Theme.Material.Light.NoActionBar">
+    <item name="android:windowBackground">@android:color/white</item>
+    <item name="android:fontFamily">sans</item>
+    <item name="android:colorAccent">#2563EB</item>
+    <item name="android:navigationBarColor">#141B29</item>
+  </style>
+</resources>

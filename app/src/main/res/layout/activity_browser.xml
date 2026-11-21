@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:background="#FFFFFF"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <EditText android:id="@+id/addressInput" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:inputType="textUri" android:singleLine="true" android:hint="https://..."/>
+        <Button android:id="@+id/goButton" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="開く"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button android:id="@+id/browserBackButton" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="戻る"/>
+        <Button android:id="@+id/scanButton" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:text="再検出"/>
+        <Button android:id="@+id/pageAnalyzeButton" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:text="ページ解析"/>
+    </LinearLayout>
+    <WebView android:id="@+id/browserWebView" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1"/>
+    <TextView android:id="@+id/detectStatus" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:padding="8dp" android:textColor="#334155"
+        android:text="検出したメディア"/>
+    <ScrollView android:layout_width="match_parent" android:layout_height="190dp">
+        <LinearLayout android:id="@+id/detectedResults" android:orientation="vertical"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    </ScrollView>
+</LinearLayout>
