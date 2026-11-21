@@ -160,7 +160,7 @@ class OverlayBubbleService : Service() {
             background = rounded(Color.WHITE, 18)
         }
         addText(root, "FloatSaver　かんたん保存", 19f)
-        addText(root, "1　ページのURLを指定", 15f)
+        addText(root, "1　BraveのURL取得・ページ指定", 15f)
         val input = EditText(this).apply {
             hint = "https://...（Braveから共有も可能）"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
@@ -168,7 +168,11 @@ class OverlayBubbleService : Service() {
             minHeight = dp(48)
         }
         root.addView(input)
-        val status = addText(root, "URLを貼り付けて「動画を調べる」を押してください。", 12f)
+        val status = addText(root, "BraveのURL取得または貼り付けを選択してください。", 12f)
+        BravePageUrlService.latestUrl()?.let {
+            input.setText(it)
+            status.text = "BraveからURLを取得済みです。「動画を調べる」で解析できます。"
+        }
         var info: MediaDetails? = null
         var choices = emptyList<QualityChoice>()
         var analyzedUrl = ""
@@ -232,6 +236,32 @@ class OverlayBubbleService : Service() {
         val analyze = Button(this).apply { text = "動画を調べる" }
         firstRow.addView(analyze, LinearLayout.LayoutParams(0, dp(48), 1f))
         root.addView(firstRow, root.indexOfChild(status))
+        val getBraveUrl = Button(this).apply {
+            text = "Braveで開いているURLを取得"
+            isAllCaps = false
+            setOnClickListener {
+                val url = BravePageUrlService.latestUrl()
+                when {
+                    !BravePageUrlService.isEnabled(this@OverlayBubbleService) -> {
+                        status.text = "ユーザー補助でFloatSaverのURL取得を許可してください。"
+                        runCatching {
+                            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            })
+                        }.onFailure {
+                            status.text = "スマホの設定 → ユーザー補助 → FloatSaverを有効にしてください。"
+                        }
+                    }
+                    url != null -> {
+                        input.setText(url)
+                        status.text = "BraveのURLを取得しました。「動画を調べる」を押してください。"
+                    }
+                    else -> status.text =
+                        "Braveで動画ページを開いてから再度お試しください。アドレス欄にURLが表示されない場合は、BraveでURL欄をタップしてください。"
+                }
+            }
+        }
+        root.addView(getBraveUrl, root.indexOfChild(firstRow))
         addText(root, "3　保存する", 15f)
         save = Button(this).apply {
             text = "ダウンロードを開始"
@@ -308,7 +338,10 @@ class OverlayBubbleService : Service() {
                             advanced.visibility = View.VISIBLE
                             updateOptions()
                             status.text = "見つかりました。画質を選んで保存してください。"
-                        }.onFailure { error -> status.text = ErrorHints.describe(error) }
+                        }.onFailure { error ->
+                            status.text = ErrorHints.describe(error) +
+                                " 下の「内蔵ブラウザで再生・検出」から同じページを開けます。"
+                        }
                     }
                 }
             }.start()
@@ -327,7 +360,7 @@ class OverlayBubbleService : Service() {
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
         }
-        addButton(root, "内蔵ブラウザで動画を自動検出") {
+        addButton(root, "内蔵ブラウザで再生・検出（失敗した場合）") {
             runCatching {
                 startActivity(Intent(this, BrowserActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK

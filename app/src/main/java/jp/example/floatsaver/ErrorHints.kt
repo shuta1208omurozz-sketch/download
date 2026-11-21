@@ -14,7 +14,7 @@ object ErrorHints {
             "timed out" in message || "timeout" in message -> "通信がタイムアウトしました。回線を確認して再試行してください。"
             "no space" in message || "enospc" in message -> "端末の空き容量が不足しています。"
             "unsupported url" in message || "no video formats" in message || "not available" in message ->
-                "動画形式を判別できません。内蔵ブラウザで再生・再検出してみてください。"
+                "ページのURLだけでは動画を検出できません。内蔵ブラウザでページを開き、動画を再生してから検出してください。"
             "login" in message || "sign in" in message || "private" in message -> "この動画にはログインや閲覧権限が必要な可能性があります。"
             "drm" in message || "encrypted" in message -> "保護された動画には対応していません。"
             else -> "解析または保存に失敗しました。URL・通信環境・保存形式を確認してください。"

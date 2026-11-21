@@ -29,6 +29,10 @@ object BrowserMediaScanner {
             }
             return false;
           };
+          document.querySelectorAll('iframe[src]').forEach((el, i) => {
+            if (i < 12 && (el.clientWidth >= 150 || el.clientHeight >= 100))
+              add(el.src, 'iframe', false, null, null, false);
+          });
           document.querySelectorAll('video').forEach(el => {
             const playing = !el.paused && !el.ended && el.readyState >= 2;
             const kind = playing ? 'playing-video' : 'video';

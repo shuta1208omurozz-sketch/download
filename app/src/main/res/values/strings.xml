@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources><string name="brave_url_service_description">Braveのアドレス欄だけを読み取り、ユーザーがフローティング画面で現在のURLを取得できるようにします。動画通信やパスワードは読み取らず、取得したURLは短時間メモリにのみ保持します。</string></resources>

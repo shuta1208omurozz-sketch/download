@@ -49,6 +49,31 @@ object MediaEngine {
         "100 MB以下の目安", "250 MB以下の目安", "500 MB以下の目安", "1000 MB以下の目安")
 
     @Volatile private var ready = false
+    private val updaterLock = Any()
+    private fun updateExtractorIfNeeded(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("floatsaver_extractor", Context.MODE_PRIVATE)
+        synchronized(updaterLock) {
+            val now = System.currentTimeMillis()
+            if (now - prefs.getLong("lastUpdateAttempt", 0L) < 86_400_000L) return false
+            prefs.edit().putLong("lastUpdateAttempt", now).apply()
+            return runCatching {
+                YoutubeDL.getInstance().updateYoutubeDL(
+                    context.applicationContext, YoutubeDL.UpdateChannel.STABLE)
+                true
+            }.getOrDefault(false)
+        }
+    }
+
+    private fun analyzeWithRetry(context: Context, request: YoutubeDLRequest): JSONObject {
+        fun read(): JSONObject = JSONObject(YoutubeDL.getInstance().execute(request).out.trim())
+        return try { read() } catch (first: Exception) {
+            val msg = first.message.orEmpty().lowercase(Locale.ROOT)
+            val mayBeOutdated = listOf("signature", "nsig", "unable to extract",
+                "unable to download", "player response", "youtube").any { it in msg }
+            if (!mayBeOutdated || !updateExtractorIfNeeded(context)) throw first
+            read()
+        }
+    }
 
     fun initialize(context: Context) {
         if (!ready) synchronized(this) {
@@ -121,8 +146,10 @@ object MediaEngine {
         request.addOption("--socket-timeout", "20")
         request.addOption("--retries", "2")
         addHeaders(request, referer, userAgent)
-        val raw = YoutubeDL.getInstance().execute(request).out.trim()
-        val json = JSONObject(raw)
+        val json = analyzeWithRetry(context, request)
+        if (!json.has("url") && (json.optJSONArray("formats")?.length() ?: 0) == 0) {
+            error("no video formats")
+        }
         val title = json.optString("title").ifBlank { "動画" }.take(180)
         val duration = json.optDouble("duration").takeIf { it.isFinite() && it > 0 }
         val formats = json.optJSONArray("formats")

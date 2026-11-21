@@ -173,7 +173,8 @@ class BrowserActivity : Activity() {
                     val url = item.optString("url")
                     val source = item.optString("kind")
                     val derived = DetectionRules.kind(url)
-                    val kind = derived ?: if (source == "video" || source == "playing-video") "動画" else null
+                    val kind = if (source == "iframe") "プレイヤー" else
+                        derived ?: if (source == "video" || source == "playing-video") "動画" else null
                     val playing = source == "playing-video" && item.optBoolean("playing", false)
                     val duration = if (item.isNull("duration")) null else item.optDouble("duration")
                         .takeIf { it.isFinite() && it > 0 }
@@ -184,6 +185,7 @@ class BrowserActivity : Activity() {
                         "video", "source" -> 4
                         "meta" -> 3
                         "resource" -> 2
+                        "iframe" -> 1
                         "image" -> 3
                         "link" -> 1
                         else -> 2
@@ -281,7 +283,14 @@ class BrowserActivity : Activity() {
                 else if (index % 2 == 0) Color.rgb(239, 245, 252) else Color.WHITE)
                 isClickable = true
                 setOnClickListener {
-                    if (state == AdClassification.Verdict.AD_SUSPECT) {
+                    if (item.kind == "プレイヤー") {
+                        AlertDialog.Builder(this@BrowserActivity)
+                            .setTitle("埋め込みプレイヤーを開く")
+                            .setMessage("動画そのものではなく埋め込みページです。開いた先で本編を再生し、再検出してください。広告ページの可能性もあります。")
+                            .setNegativeButton("戻る", null)
+                            .setPositiveButton("開く") { _, _ -> web.loadUrl(item.url) }
+                            .show()
+                    } else if (state == AdClassification.Verdict.AD_SUSPECT) {
                         AlertDialog.Builder(this@BrowserActivity)
                             .setTitle("広告の可能性があります")
                             .setMessage("この候補は広告の可能性があります。本編の再生が始まってから再検出することをおすすめします。\n\nそれでも解析しますか？")
