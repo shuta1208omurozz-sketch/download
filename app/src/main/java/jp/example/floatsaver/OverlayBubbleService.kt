@@ -223,6 +223,7 @@ class OverlayBubbleService : Service() {
                 "元データ: ${sizeLabel(item.estimatedBytes, item.isApproximate)}。容量不明の場合は上限を確認できません。"
         }
         val firstRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val analyze = Button(this).apply { text = "動画を調べる" }
         val paste = Button(this).apply {
             text = "URLを貼り付け"
             setOnClickListener {
@@ -241,7 +242,6 @@ class OverlayBubbleService : Service() {
             }
         }
         firstRow.addView(paste, LinearLayout.LayoutParams(0, dp(48), 1f))
-        val analyze = Button(this).apply { text = "動画を調べる" }
         firstRow.addView(analyze, LinearLayout.LayoutParams(0, dp(48), 1f))
         root.addView(firstRow, root.indexOfChild(status))
         val getBraveUrl = Button(this).apply {
