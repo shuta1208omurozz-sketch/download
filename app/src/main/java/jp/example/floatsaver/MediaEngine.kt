@@ -108,27 +108,60 @@ object MediaEngine {
     fun isDirectGif(url: String): Boolean = DetectionRules.kind(url) == "GIF"
 
     /** A plain media-file URL can be saved without involving a webpage extractor. */
+    private fun acceptedDirectMediaType(type: String): Boolean =
+        type.startsWith("video/") || type in setOf(
+            "application/octet-stream", "binary/octet-stream",
+            "application/force-download", "application/x-download", "application/download")
+
+    /**
+     * Some CDNs reject HEAD or omit MIME type, despite serving a real media file.
+     * A one-byte Range GET is only a metadata fallback; its body is never read.
+     */
     private fun probeDirectVideo(url: String, referer: String?, agent: String?): MediaDetails? {
         val ext = DetectionRules.directVideoExtension(url) ?: return null
-        val connection = URL(url).openConnection() as HttpURLConnection
-        connection.requestMethod = "HEAD"
-        connection.connectTimeout = 5000
-        connection.readTimeout = 5000
-        applyHeaders(connection, referer, agent)
-        return try {
-            val code = connection.responseCode
-            val type = connection.contentType.orEmpty().substringBefore(';').trim().lowercase(Locale.ROOT)
-            if (code !in 200..299 ||
-                !(type.startsWith("video/") || type == "application/octet-stream" ||
-                    type == "binary/octet-stream")) null
-            else {
-                val rawName = Uri.parse(url).lastPathSegment.orEmpty()
-                    .substringBefore('?').take(90).ifBlank { "video.$ext" }
-                MediaDetails(rawName, null,
-                    listOf(QualityChoice("元の画質（.$ext）", "direct", connection.contentLengthLong.takeIf { it > 0 })),
-                    false)
+        fun probe(method: String): Long? {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.requestMethod = method
+            connection.connectTimeout = 4500
+            connection.readTimeout = 4500
+            if (method == "GET") connection.setRequestProperty("Range", "bytes=0-0")
+            applyHeaders(connection, referer, agent)
+            return try {
+                val code = connection.responseCode
+                val type = connection.contentType.orEmpty()
+                    .substringBefore(';').trim().lowercase(Locale.ROOT)
+                if (code !in 200..299 || !acceptedDirectMediaType(type)) {
+                    throw IOException("Direct video probe rejected")
+                }
+                if (code == 206) {
+                    connection.getHeaderField("Content-Range")
+                        ?.substringAfterLast('/')
+                        ?.toLongOrNull()?.takeIf { it > 0 }
+                } else connection.contentLengthLong.takeIf { it > 0 }
+            } finally {
+                connection.disconnect()
             }
-        } finally { connection.disconnect() }
+        }
+        // A successful HEAD with unknown length is still a valid probe.
+        val first = runCatching { probe("HEAD") }
+        val bytes = if (first.isSuccess) first.getOrNull() else {
+            val second = runCatching { probe("GET") }
+            if (second.isFailure) return null
+            second.getOrNull()
+        }
+        return MediaDetails(
+            safeDirectFileName(url, "video", ext), null,
+            listOf(QualityChoice("元の画質（.$ext）", "direct", bytes)), false
+        )
+    }
+
+    private fun safeDirectFileName(url: String, fallback: String, extension: String): String {
+        val original = Uri.parse(url).lastPathSegment.orEmpty()
+        val cleaned = original.map { ch ->
+            if (ch in "/\\:*?\"<>|" || Character.isISOControl(ch)) '_' else ch
+        }.joinToString("").take(100).trim('.', ' ')
+        return if (cleaned.endsWith(".$extension", ignoreCase = true) && cleaned.length > extension.length + 1)
+            cleaned else "$fallback.$extension"
     }
 
     private fun saveDirectVideo(
@@ -144,8 +177,7 @@ object MediaEngine {
             if (connection.responseCode !in 200..299) error("HTTP ${connection.responseCode}")
             val type = connection.contentType.orEmpty().substringBefore(';').trim().lowercase(Locale.ROOT)
             if (type.startsWith("text/") || type.contains("html") || type.contains("json") ||
-                (type.isNotEmpty() && !type.startsWith("video/") &&
-                    type !in setOf("application/octet-stream", "binary/octet-stream"))) {
+                (type.isNotEmpty() && !acceptedDirectMediaType(type))) {
                 error("動画ではないレスポンスです")
             }
             val total = connection.contentLengthLong
@@ -163,13 +195,15 @@ object MediaEngine {
                             val sample = String(buffer, 0, count.coerceAtMost(64), Charsets.ISO_8859_1)
                                 .trimStart().lowercase(Locale.ROOT)
                             if (sample.startsWith("<!doctype") || sample.startsWith("<html") ||
-                                sample.startsWith("{\"error\"") || sample.startsWith("<?xml")) {
+                                sample.startsWith("{") || sample.startsWith("[{") ||
+                                sample.startsWith("<?xml")) {
                                 error("動画ではないレスポンスです")
                             }
                         }
                         destination.write(buffer, 0, count)
                         countBytes += count
-                        if (total > 0) onProgress(((countBytes * 100) / total).toInt().coerceIn(0, 99))
+                        if (total > 0) onProgress((countBytes.toDouble() * 100 / total)
+                            .toInt().coerceIn(0, 99))
                     }
                 }
             }
@@ -328,7 +362,7 @@ object MediaEngine {
             val file: File
             if (gif) {
                 require(container == CONTAINER_GIF) { "GIFはオリジナル形式のみ対応です" }
-                file = File(staging, "animation.gif")
+                file = File(staging, safeDirectFileName(url, "animation", "gif"))
                 var lastFailure: IOException? = null
                 for (attempt in 1..3) {
                     check(!isCancelled()) { "保存を中断しました" }
@@ -381,7 +415,7 @@ object MediaEngine {
                 require(container == CONTAINER_ORIGINAL) { "直リンクは元の形式で保存してください" }
                 val ext = DetectionRules.directVideoExtension(url)
                     ?: error("動画ファイルのURLではありません")
-                file = File(staging, "video.$ext")
+                file = File(staging, safeDirectFileName(url, "video", ext))
                 saveDirectVideo(url, file, referer, userAgent, isCancelled, onProgress)
             } else {
                 require(container in CONTAINER_KEYS) { "不明な保存形式です" }

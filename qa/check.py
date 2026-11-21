@@ -29,7 +29,8 @@ assert 'destroyProcessById' in (files / 'DownloadService.kt').read_text()
 assert 'container == CONTAINER_ORIGINAL || it.extension.equals(container, true)' in (files / 'MediaEngine.kt').read_text()
 assert 'choice.estimatedBytes == null' in (files / 'MainActivity.kt').read_text()
 assert 'runCatching { wm.addView(scroll, params) }' in (files / 'OverlayBubbleService.kt').read_text()
-assert 'versionCode = 8' in (root / 'app/build.gradle.kts').read_text()
+version = re.search(r'versionCode\s*=\s*(\d+)', (root / 'app/build.gradle.kts').read_text())
+assert version and int(version.group(1)) >= 9
 browser = (files / 'BrowserActivity.kt').read_text()
 assert 'BrowserMediaScanner.script' in browser
 assert 'AdClassification.classify' in browser

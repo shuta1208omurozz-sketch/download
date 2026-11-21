@@ -151,8 +151,10 @@ class MainActivity : Activity() {
 
     private fun pasteFromClipboard(analyzeImmediately: Boolean = false) {
         val clip = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-        val raw = clip.primaryClip?.takeIf { it.itemCount > 0 }
-            ?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+        val raw = runCatching {
+            clip.primaryClip?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+        }.getOrDefault("")
         val url = findHttpUrl(raw)
         if (url == null) {
             statusText.text = "URLが見つかりません。Braveの共有→FloatSaverも利用できます。"

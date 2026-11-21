@@ -20,7 +20,7 @@ class BravePageUrlService : AccessibilityService() {
             "com.brave.browser_dev", "com.brave.browser_nightly")
 
         fun latestUrl(): String? = lastUrl?.takeIf {
-            SystemClock.elapsedRealtime() - savedAt in 0L..180_000L
+            SystemClock.elapsedRealtime() - savedAt in 0L..45_000L
         }
 
         fun isEnabled(context: Context): Boolean {
@@ -76,7 +76,16 @@ class BravePageUrlService : AccessibilityService() {
         val now = SystemClock.elapsedRealtime()
         if (now - lastInspection < 350L) return
         lastInspection = now
-        val url = rootInActiveWindow?.let { addressBarUrl(it) } ?: return
+        val url = rootInActiveWindow?.let { addressBarUrl(it) }
+        if (url == null) {
+            // Never hand back the URL from a previous tab after a browser navigation.
+            if (observedEvent.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+                observedEvent.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
+                lastUrl = null
+                savedAt = 0L
+            }
+            return
+        }
         lastUrl = url
         savedAt = now
     }

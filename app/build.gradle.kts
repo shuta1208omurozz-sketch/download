@@ -11,8 +11,8 @@ android {
         applicationId = "jp.example.floatsaver"
         minSdk = 29
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.8-alpha"
+        versionCode = 9
+        versionName = "0.9-alpha"
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions {
@@ -27,4 +27,5 @@ dependencies {
     val dlVersion = "0.18.1"
     implementation("io.github.junkfood02.youtubedl-android:library:$dlVersion")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:$dlVersion")
+    testImplementation("junit:junit:4.13.2")
 }

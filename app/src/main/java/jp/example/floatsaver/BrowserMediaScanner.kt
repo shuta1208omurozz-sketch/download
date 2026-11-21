@@ -73,7 +73,11 @@ object BrowserMediaScanner {
           document.querySelectorAll('img').forEach((el, i) => { if (i < 180) add(el.currentSrc || el.src, 'image'); });
           document.querySelectorAll('a').forEach((el, i) => { if (i < 180) add(el.href, 'link'); });
           if (window.performance && performance.getEntriesByType) {
-            performance.getEntriesByType('resource').slice(-100).forEach(el => add(el.name, 'resource'));
+            const now = typeof performance.now === 'function' ? performance.now() : null;
+            performance.getEntriesByType('resource').slice(-100).forEach(el => {
+              if (now === null || !Number.isFinite(el.responseEnd) ||
+                  now - el.responseEnd < 120000) add(el.name, 'resource');
+            });
           }
           return items;
         })()

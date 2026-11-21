@@ -29,7 +29,8 @@ class BrowserActivity : Activity() {
         val url: String, val kind: String, val origin: String, val priority: Int,
         val durationSeconds: Double? = null, val playbackSeconds: Double? = null,
         val evidence: AdClassification.Evidence = AdClassification.Evidence(),
-        val lastPlayingAt: Long = 0L
+        val lastPlayingAt: Long = 0L,
+        val lastObservedAt: Long = 0L
     )
     private lateinit var web: WebView
     private lateinit var address: EditText
@@ -241,7 +242,8 @@ class BrowserActivity : Activity() {
             duration ?: old?.durationSeconds,
             elapsed ?: old?.playbackSeconds,
             evidence,
-            if (playing) now else old?.lastPlayingAt ?: 0L
+            if (playing) now else old?.lastPlayingAt ?: 0L,
+            now
         )
         scheduleRepaint()
     }
@@ -264,6 +266,11 @@ class BrowserActivity : Activity() {
 
     private fun renderCandidates() {
         if (!::results.isInitialized) return
+        // Drop media that was seen only on a long-gone network request or old ad.
+        val now = SystemClock.elapsedRealtime()
+        found.entries.removeAll { (_, candidate) ->
+            candidate.lastObservedAt > 0L && now - candidate.lastObservedAt > 180_000L
+        }
         results.removeAllViews()
         val candidates = found.values.sortedWith(compareBy<Candidate> { verdict(it).order }
             .thenByDescending { it.priority })

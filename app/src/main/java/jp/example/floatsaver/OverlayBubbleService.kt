@@ -421,7 +421,8 @@ class OverlayBubbleService : Service() {
                 stopSelf()
             }
         }
-        root.addView(stopFloating, LinearLayout.LayoutParams(-1, dp(52)))
+        // Keep the stop control above the URL entry even on short mobile screens.
+        root.addView(stopFloating, 1, LinearLayout.LayoutParams(-1, dp(52)))
         val scroll = ScrollView(this).apply { addView(root) }
         val params = WindowManager.LayoutParams(
             resources.displayMetrics.widthPixels - dp(24),
