@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'FloatSaver-Android-v*.zip'
+      - '.github/workflows/import-floatsaver-zip.yml'
   workflow_dispatch:
 
 permissions:
@@ -52,6 +53,10 @@ jobs:
                   if parts[0] == ".git":
                       raise SystemExit("ZIP must not contain Git internals")
                   output = Path(*parts)
+                  if output.parts[:2] == (".github", "workflows"):
+                      # The Actions token cannot commit workflow definitions.
+                      # Import source only, and manage workflows separately.
+                      continue
                   if output.as_posix() == ".github/workflows/import-floatsaver-zip.yml":
                       continue
                   if item.is_dir():
