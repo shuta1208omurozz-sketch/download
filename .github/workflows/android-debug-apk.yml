@@ -39,14 +39,50 @@ jobs:
           python3 qa/check.py
           python3 qa/check-browser-js.py
 
-      - name: Build debug APK
+      - name: Read the Android app version
+        id: version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          gradle_file = Path("app/build.gradle.kts").read_text(encoding="utf-8")
+          match = re.search(r'\bversionName\s*=\s*"([^"]+)"', gradle_file)
+          if not match:
+              raise SystemExit("Missing versionName in app/build.gradle.kts")
+          version = match.group(1)
+          if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,60}", version):
+              raise SystemExit("Invalid versionName for the APK file name")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              print(f"name={version}", file=output)
+          print(f"APK version: {version}; build: {os.environ['GITHUB_RUN_NUMBER']}")
+          PY
+
+      - name: Build and test debug APK
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
 
-      - name: Upload APK
-        if: success()
+      - name: Give the APK a versioned file name
+        env:
+          APP_VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          apk = Path("app/build/outputs/apk/debug/app-debug.apk")
+          if not apk.is_file() or apk.stat().st_size == 0:
+              raise SystemExit("Missing compiled APK")
+          new_name = f"FloatSaver-v{os.environ['APP_VERSION']}-build{os.environ['GITHUB_RUN_NUMBER']}-debug.apk"
+          target = apk.with_name(new_name)
+          apk.rename(target)
+          print(f"Downloadable APK: {target}")
+          PY
+
+      - name: Upload versioned APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatSaver-debug-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: FloatSaver-v${{ steps.version.outputs.name }}-build${{ github.run_number }}-APK
+          path: app/build/outputs/apk/debug/FloatSaver-v*-debug.apk
           if-no-files-found: error
           retention-days: 30
