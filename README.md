@@ -34,3 +34,12 @@ GitHubでのビルド後、**Artifacts**には `FloatSaver-v0.9-alpha-build番�
 - **debug**：テスト用APKであることを示します。
 
 ファイル名の変更のみで、アプリID・保存先・既存の動画解析機能や利用権限は変わりません。
+
+
+## ZIPなしインストール・同一署名で更新する
+
+GitHubの **[FloatSaver 最新APK](https://github.com/shuta1208omurozz-sketch/download/releases/tag/latest-debug)** から `FloatSaver-v◯◯-build◯◯-debug.apk` を直接タップすると、ZIPを解凍せずにダウンロードできます（GitHubへのログイン状況やブラウザーにより確認画面が表示される場合があります）。ビルドのArtifactsは従来どおりZIP形式のままです。
+
+新しいAPKは毎回同じ署名になるよう、暗号化した署名鍵 `signing/floatsaver-signing.p12.enc.b64` を使用します。秘密鍵を公開しないため、GitHubリポジトリの **Settings → Secrets and variables → Actions → New repository secret** に `FLOATSAVER_SIGNING_SECRET` を**一度だけ**登録してください。この値は公開リポジトリにコミットしないでください。未設定の場合、署名なしのAPKが公開されないよう自動ビルドは失敗します。
+
+すでにインストールされているAPKが別の署名鍵で作成されている場合、**最初の一回はアンインストールが必要**です。この署名設定でインストールした後は、その後の更新版を原則として上書きできます。同じ署名鍵を使ってもAndroidのアプリ側でバージョンコードが小さくなると上書きできないため、今後は `versionCode` を増やして更新してください。署名鍵の復号文字列は紛失すると復元できないため、安全に保管してください。

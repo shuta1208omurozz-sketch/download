@@ -14,7 +14,29 @@ android {
         versionCode = 9
         versionName = "0.9-alpha"
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    // CI reads the stable signing key from an encrypted repository file.
+    // Local builds without these env vars can still use the standard debug key.
+    val signingFile = System.getenv("FLOATSAVER_SIGNING_KEYSTORE").orEmpty()
+    val signingPassword = System.getenv("FLOATSAVER_SIGNING_SECRET").orEmpty()
+    signingConfigs {
+        if (signingFile.isNotBlank() && signingPassword.isNotBlank()) {
+            create("stableDebug") {
+                storeFile = file(signingFile)
+                storePassword = signingPassword
+                keyPassword = signingPassword
+                keyAlias = "floatsaver"
+                storeType = "PKCS12"
+            }
+        }
+    }
+    buildTypes {
+        getByName("debug") {
+            if (signingFile.isNotBlank() && signingPassword.isNotBlank()) {
+                signingConfig = signingConfigs.getByName("stableDebug")
+            }
+        }
+        getByName("release") { isMinifyEnabled = false }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

@@ -13,7 +13,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: floatsaver-latest-debug-release
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -59,7 +63,26 @@ jobs:
           print(f"APK version: {version}; build: {os.environ['GITHUB_RUN_NUMBER']}")
           PY
 
+      - name: Restore stable Android signing key
+        env:
+          FLOATSAVER_SIGNING_SECRET: ${{ secrets.FLOATSAVER_SIGNING_SECRET }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${FLOATSAVER_SIGNING_SECRET}" ]]; then
+            echo "::error::One-time setup needed. Add the repository Actions secret FLOATSAVER_SIGNING_SECRET, then run this workflow again."
+            exit 1
+          fi
+          SIGNING_FILE="$RUNNER_TEMP/floatsaver-signing.p12"
+          base64 --decode signing/floatsaver-signing.p12.enc.b64 | \
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 250000 \
+              -pass env:FLOATSAVER_SIGNING_SECRET -out "$SIGNING_FILE"
+          keytool -list -storetype PKCS12 -keystore "$SIGNING_FILE" \
+            -storepass:env FLOATSAVER_SIGNING_SECRET >/dev/null
+          echo "FLOATSAVER_SIGNING_KEYSTORE=$SIGNING_FILE" >> "$GITHUB_ENV"
+
       - name: Build and test debug APK
+        env:
+          FLOATSAVER_SIGNING_SECRET: ${{ secrets.FLOATSAVER_SIGNING_SECRET }}
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
 
       - name: Give the APK a versioned file name
@@ -86,3 +109,34 @@ jobs:
           path: app/build/outputs/apk/debug/FloatSaver-v*-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+
+      - name: Verify APK was signed
+        env:
+          APP_VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/FloatSaver-v${APP_VERSION}-build${GITHUB_RUN_NUMBER}-debug.apk"
+          APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --min-sdk-version 29 --verbose --print-certs "$APK"
+
+      - name: Publish direct-download APK (without ZIP)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/FloatSaver-v${APP_VERSION}-build${GITHUB_RUN_NUMBER}-debug.apk"
+          NOTES="Android用FloatSaverのテスト版APKです。ZIP解凍不要で直接インストールできます。アプリのアップデートには同じ署名を使用しています。"
+          if gh release view latest-debug >/dev/null 2>&1; then
+            for old_id in $(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/latest-debug" --jq '.assets[].id'); do
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${old_id}"
+            done
+            gh release upload latest-debug "$APK"
+            gh release edit latest-debug --title "FloatSaver v${APP_VERSION} (build ${GITHUB_RUN_NUMBER})" --notes "$NOTES"
+          else
+            gh release create latest-debug "$APK" --target "$GITHUB_SHA" \
+              --title "FloatSaver v${APP_VERSION} (build ${GITHUB_RUN_NUMBER})" \
+              --notes "$NOTES" --prerelease
+          fi
