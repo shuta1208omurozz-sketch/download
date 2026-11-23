@@ -13,6 +13,10 @@ object ErrorHints {
             "429" in message || "too many requests" in message -> "アクセスが集中しています（429）。時間をおいてやり直してください。"
             "timed out" in message || "timeout" in message -> "通信がタイムアウトしました。回線を確認して再試行してください。"
             "no space" in message || "enospc" in message -> "端末の空き容量が不足しています。"
+            "動画の受信が途中で終了" in message || "動画の一部分のみ受信" in message ->
+                "動画データの受信が途中で終了しました。通信を確認して再試行してください。"
+            "requested format is not available" in message ->
+                "選択した画質が配信側で利用できなくなりました。動画を再解析して別の画質を選んでください。"
             "動画ではないレスポンス" in message -> "動画ではないページが返されました。再生画面から候補を探してください。"
             "直リンクは元の形式" in message -> "動画ファイルのURLでは元の形式を選んでください。"
             "unsupported url" in message || "no video formats" in message || "not available" in message ->

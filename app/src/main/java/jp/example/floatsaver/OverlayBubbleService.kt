@@ -229,7 +229,7 @@ class OverlayBubbleService : Service() {
             container.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
                 when {
                     info?.isGif == true -> listOf("GIF（元の形式）")
-                    info?.qualities?.any { it.formatSelector == "direct" } == true ->
+                    info?.qualities?.any { it.formatSelector == "direct" || it.formatSelector.startsWith("direct:") } == true ->
                         listOf("元の形式（直リンク）")
                     else -> MediaEngine.VIDEO_CONTAINERS
                 })

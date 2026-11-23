@@ -46,6 +46,7 @@ class MainActivity : Activity() {
     private var userAgent: String? = null
     private var analyzeGeneration = 0
     private var pendingAnalysisUrl = ""
+    private var knownVideoCandidate = false
 
     private fun dp(value: Int): Int = (resources.displayMetrics.density * value).toInt()
 
@@ -83,6 +84,7 @@ class MainActivity : Activity() {
                     pendingAnalysisUrl = ""
                     referer = null
                     userAgent = null
+                    knownVideoCandidate = false
                     ++analyzeGeneration // invalidate any old results
                     analyzeButton.isEnabled = true
                     workingBar.visibility = View.GONE
@@ -168,6 +170,7 @@ class MainActivity : Activity() {
             urlInput.setText(url)
             referer = incoming?.getStringExtra("sourceReferer")
             userAgent = incoming?.getStringExtra("sourceUserAgent")
+            knownVideoCandidate = incoming?.getBooleanExtra("sourceIsVideo", false) == true
             analyze()
         } else if (incoming?.getBooleanExtra("captureRequested", false) == true) {
             getBrowserUrlWithoutRedirect()
@@ -177,6 +180,7 @@ class MainActivity : Activity() {
         incoming?.removeExtra("sourceUrl")
         incoming?.removeExtra("sourceReferer")
         incoming?.removeExtra("sourceUserAgent")
+        incoming?.removeExtra("sourceIsVideo")
         incoming?.removeExtra("captureRequested")
         incoming?.removeExtra("autoPaste")
         if (incoming?.action == Intent.ACTION_SEND) {
@@ -224,6 +228,7 @@ class MainActivity : Activity() {
         } else {
             referer = null
             userAgent = null
+            knownVideoCandidate = false
             urlInput.setText(url)
             statusText.text = "URLを取得しました"
             if (analyzeImmediately) analyze()
@@ -248,7 +253,7 @@ class MainActivity : Activity() {
         containerSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
             when {
                 gif -> listOf("GIF（オリジナル）")
-                details?.qualities?.any { it.formatSelector == "direct" } == true ->
+                details?.qualities?.any { it.formatSelector == "direct" || it.formatSelector.startsWith("direct:") } == true ->
                     listOf("元の形式（直リンク）")
                 else -> MediaEngine.VIDEO_CONTAINERS
             })
@@ -283,8 +288,11 @@ class MainActivity : Activity() {
         statusText.text = "動画・GIFを解析しています…"
         val headerReferer = referer
         val headerAgent = userAgent
+        val videoHint = knownVideoCandidate
         Thread {
-            val outcome = runCatching { MediaEngine.analyze(applicationContext, url, headerReferer, headerAgent) }
+            val outcome = runCatching {
+                MediaEngine.analyze(applicationContext, url, headerReferer, headerAgent, videoHint)
+            }
             runOnUiThread {
                 if (generation != analyzeGeneration || isFinishing) return@runOnUiThread
                 analyzeButton.isEnabled = true

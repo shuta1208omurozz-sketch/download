@@ -46,7 +46,9 @@ object BrowserMediaScanner {
           document.querySelectorAll('[data-video-src], [data-hls-src], [data-mpd-src], [data-media-url]').forEach((el, i) => {
             if (i >= 45) return;
             ['data-video-src','data-hls-src','data-mpd-src','data-media-url'].forEach(attr => {
-              add(el.getAttribute(attr), 'source-data');
+              const kind = (attr === 'data-hls-src' || attr === 'data-mpd-src')
+                ? 'stream-attribute' : 'video-attribute';
+              add(el.getAttribute(attr), kind);
             });
           });
           document.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player:stream"]').forEach(el => add(el.content, 'meta'));
@@ -61,7 +63,7 @@ object BrowserMediaScanner {
                 if (typeof obj !== 'object') return;
                 const type = obj['@type'];
                 if (type === 'VideoObject' || (Array.isArray(type) && type.includes('VideoObject'))) {
-                  add(obj.contentUrl, 'jsonld');
+                  add(obj.contentUrl, 'video-meta');
                   add(obj.embedUrl, 'iframe');
                 }
                 visit(obj['@graph'], depth+1);

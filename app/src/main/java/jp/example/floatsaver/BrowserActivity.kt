@@ -295,7 +295,11 @@ class BrowserActivity : Activity() {
                     val source = item.optString("kind")
                     val derived = DetectionRules.kind(url)
                     val kind = if (source == "iframe") "プレイヤー" else
-                        derived ?: if (source == "video" || source == "playing-video") "動画" else null
+                        derived ?: when (source) {
+                            "video", "playing-video", "video-attribute", "video-meta" -> "動画"
+                            "stream-attribute" -> "配信"
+                            else -> null
+                        }
                     val playing = source == "playing-video" && item.optBoolean("playing", false)
                     val duration = if (item.isNull("duration")) null else item.optDouble("duration")
                         .takeIf { it.isFinite() && it > 0 }
@@ -308,7 +312,7 @@ class BrowserActivity : Activity() {
                         "resource" -> 2
                         "iframe" -> 1
                         "jsonld" -> 3
-                        "source-data" -> 3
+                        "source-data", "video-attribute", "video-meta", "stream-attribute" -> 3
                         "image" -> 3
                         "link" -> 1
                         else -> 2
@@ -427,9 +431,11 @@ class BrowserActivity : Activity() {
                             .setTitle("広告の可能性があります")
                             .setMessage("この候補は広告の可能性があります。本編の再生が始まってから再検出することをおすすめします。\n\nそれでも解析しますか？")
                             .setNegativeButton("戻る", null)
-                            .setPositiveButton("解析する") { _, _ -> openAnalyzer(item.url, currentPage) }
+                            .setPositiveButton("解析する") { _, _ ->
+                                openAnalyzer(item.url, currentPage, item.kind == "動画")
+                            }
                             .show()
-                    } else openAnalyzer(item.url, currentPage)
+                    } else openAnalyzer(item.url, currentPage, item.kind == "動画")
                 }
             })
         }
@@ -438,7 +444,7 @@ class BrowserActivity : Activity() {
         })
     }
 
-    private fun openAnalyzer(url: String, referer: String?) {
+    private fun openAnalyzer(url: String, referer: String?, knownVideo: Boolean = false) {
         val target = runCatching { MediaEngine.validatedUrl(url) }.getOrNull()
         if (target == null) { status.text = "解析するURLがありません"; return }
         startActivity(Intent(this, MainActivity::class.java).apply {
@@ -446,6 +452,7 @@ class BrowserActivity : Activity() {
             // returns to the playing/video-detection page instead of exiting.
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("sourceUrl", target)
+            putExtra("sourceIsVideo", knownVideo)
             if (!referer.isNullOrBlank()) putExtra("sourceReferer", referer)
             putExtra("sourceUserAgent", web.settings.userAgentString)
         })
