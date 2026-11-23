@@ -86,6 +86,7 @@ class MainActivity : Activity() {
                     ++analyzeGeneration // invalidate any old results
                     analyzeButton.isEnabled = true
                     workingBar.visibility = View.GONE
+                    findViewById<Button>(R.id.fallbackBrowserButton).visibility = View.GONE
                     refreshChoices()
                     statusText.text = "URLを変更しました。「動画を調べる」を押してください。"
                 }
@@ -98,14 +99,12 @@ class MainActivity : Activity() {
             Toast.makeText(this, "フローティングを終了しました", Toast.LENGTH_SHORT).show()
             finish()
         }
-        findViewById<Button>(R.id.braveUrlButton).setOnClickListener { getBraveUrlWithoutRedirect() }
+        findViewById<Button>(R.id.braveUrlButton).setOnClickListener { getBrowserUrlWithoutRedirect() }
+        findViewById<Button>(R.id.fallbackBrowserButton).setOnClickListener { openBrowserFromUrl() }
+        findViewById<TextView>(R.id.versionText).text =
+            "v" + packageManager.getPackageInfo(packageName, 0).versionName
         findViewById<Button>(R.id.pasteButton).setOnClickListener { pasteFromClipboard(analyzeImmediately = true) }
-        findViewById<Button>(R.id.browserButton).setOnClickListener {
-            startActivity(Intent(this, BrowserActivity::class.java).apply {
-                urlInput.text.toString().takeIf { it.startsWith("https://") || it.startsWith("http://") }
-                    ?.let { putExtra(BrowserActivity.KEY_PAGE, it) }
-            })
-        }
+        findViewById<Button>(R.id.browserButton).setOnClickListener { openBrowserFromUrl() }
         findViewById<Button>(R.id.historyButton).setOnClickListener {
             startActivity(Intent(this, HistoryActivity::class.java))
         }
@@ -152,6 +151,12 @@ class MainActivity : Activity() {
         if (::overlayButton.isInitialized) updateOverlayButton()
     }
 
+    private fun openBrowserFromUrl() {
+        startActivity(Intent(this, BrowserActivity::class.java).apply {
+            findHttpUrl(urlInput.text.toString())?.let { putExtra(BrowserActivity.KEY_PAGE, it) }
+        })
+    }
+
     private fun handleIncomingIntent(incoming: Intent?) {
         val browserUrl = incoming?.getStringExtra("sourceUrl")
         val shared = if (incoming?.action == Intent.ACTION_SEND) {
@@ -169,10 +174,10 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun getBraveUrlWithoutRedirect() {
-        val fromBrave = BravePageUrlService.latestUrl()
-        if (fromBrave != null) {
-            urlInput.setText(fromBrave)
+    private fun getBrowserUrlWithoutRedirect() {
+        val fromBrowser = BravePageUrlService.latestUrl()
+        if (fromBrowser != null) {
+            urlInput.setText(fromBrowser)
             analyze()
             return
         }
@@ -186,7 +191,7 @@ class MainActivity : Activity() {
             urlInput.setText(copied)
             analyze()
         } else {
-            statusText.text = "Braveで「共有 → FloatSaver」を選ぶか、URLをコピーしてから押してください。ユーザー補助は自動取得を希望する場合だけ設定します。"
+            statusText.text = "ブラウザで「共有 → FloatSaver」を選ぶか、URLをコピーしてください。自動取得には任意のユーザー補助権限が必要です。"
         }
     }
 
@@ -198,7 +203,7 @@ class MainActivity : Activity() {
         }.getOrDefault("")
         val url = findHttpUrl(raw)
         if (url == null) {
-            statusText.text = "URLがありません。Braveで「共有 → FloatSaver」を選ぶか、URLをコピーしてください。"
+            statusText.text = "URLを取得できませんでした。ブラウザで「共有 → FloatSaver」を選ぶか、URLをコピーしてください。"
         } else {
             referer = null
             userAgent = null
@@ -257,7 +262,8 @@ class MainActivity : Activity() {
         refreshChoices()
         analyzeButton.isEnabled = false
         workingBar.visibility = View.VISIBLE
-        statusText.text = "動画・GIFを確認しています…（しばらく操作せずお待ちください）"
+        findViewById<Button>(R.id.fallbackBrowserButton).visibility = View.GONE
+        statusText.text = "動画・GIFを解析しています…"
         val headerReferer = referer
         val headerAgent = userAgent
         Thread {
@@ -279,12 +285,19 @@ class MainActivity : Activity() {
                             sec / 3600, (sec % 3600) / 60, sec % 60)}"
                     }
                     refreshChoices()
-                    statusText.text = "動画が見つかりました。画質を選んで「ダウンロード」を押してください。"
+                    statusText.text = "動画が見つかりました。画質を選んで保存してください。"
+                    findViewById<Button>(R.id.fallbackBrowserButton).visibility = View.GONE
+                    findViewById<ScrollView>(R.id.panelCard).post {
+                        findViewById<ScrollView>(R.id.panelCard)
+                            .smoothScrollTo(0, findViewById<View>(R.id.selectionSection).top)
+                    }
                 }.onFailure { error ->
                     titleText.text = "解析できませんでした"
                     durationText.text = "再生時間: ー"
                     refreshChoices()
-                    statusText.text = ErrorHints.describe(error)
+                    statusText.text = ErrorHints.describe(error) +
+                        " ここから再生画面で動画を探すこともできます。"
+                    findViewById<Button>(R.id.fallbackBrowserButton).visibility = View.VISIBLE
                 }
             }
         }.start()

@@ -3,7 +3,7 @@
     android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeViewFocused|typeViewTextChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:notificationTimeout="200"
-    android:packageNames="com.brave.browser,com.brave.browser_beta,com.brave.browser_dev,com.brave.browser_nightly"
+    android:packageNames="com.brave.browser,com.brave.browser_beta,com.brave.browser_dev,com.brave.browser_nightly,com.android.chrome,com.chrome.beta,com.chrome.dev,com.chrome.canary,com.microsoft.emmx,com.microsoft.emmx.beta,org.mozilla.firefox,com.vivaldi.browser"
     android:accessibilityFlags="flagReportViewIds"
     android:canRetrieveWindowContent="true"
     android:description="@string/brave_url_service_description" />

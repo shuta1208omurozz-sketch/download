@@ -14,6 +14,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.text.Editable
 import android.text.TextWatcher
 import android.provider.Settings
@@ -75,7 +76,7 @@ class OverlayBubbleService : Service() {
             gravity = Gravity.CENTER
             elevation = dp(10).toFloat()
             background = rounded(Color.rgb(36, 96, 227), 100)
-            contentDescription = "FloatSaverの操作パネルを開く"
+            contentDescription = "FloatSaverの操作パネルを開く。長押しで終了"
         }
         val params = WindowManager.LayoutParams(size, size,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -88,12 +89,14 @@ class OverlayBubbleService : Service() {
         var lastX = 0f
         var lastY = 0f
         var distance = 0f
+        var touchStartedAt = 0L
         view.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     lastX = event.rawX
                     lastY = event.rawY
                     distance = 0f
+                    touchStartedAt = SystemClock.elapsedRealtime()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -108,7 +111,9 @@ class OverlayBubbleService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (distance < dp(14)) {
+                    if (distance < dp(14) && SystemClock.elapsedRealtime() - touchStartedAt >= 900L) {
+                        stopSelf()
+                    } else if (distance < dp(14)) {
                         // A normal translucent Activity is automatically removed from
                         // the screen when Recents/Home takes focus. The old TYPE_APPLICATION_OVERLAY
                         // panel obstructed the entire task switcher.
@@ -169,18 +174,18 @@ class OverlayBubbleService : Service() {
             background = rounded(Color.WHITE, 18)
         }
         addText(root, "FloatSaver　かんたん保存", 19f)
-        addText(root, "1　BraveのURL取得・ページ指定", 15f)
+        addText(root, "1　ブラウザのURL取得・ページ指定", 15f)
         val input = EditText(this).apply {
-            hint = "https://...（Braveから共有も可能）"
+            hint = "https://...（ブラウザから共有も可能）"
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
             setSingleLine(true)
             minHeight = dp(48)
         }
         root.addView(input)
-        val status = addText(root, "BraveのURL取得または貼り付けを選択してください。", 12f)
+        val status = addText(root, "ブラウザから共有するかURLをコピーして貼り付けてください。", 12f)
         BravePageUrlService.latestUrl()?.let {
             input.setText(it)
-            status.text = "BraveのURLを入力済みです。ボタンを押して動画を調べてください。"
+            status.text = "URLを入力済みです。ボタンを押して動画を調べてください。"
         }
         var info: MediaDetails? = null
         var choices = emptyList<QualityChoice>()
@@ -243,7 +248,7 @@ class OverlayBubbleService : Service() {
                 }.getOrDefault("")
                 val url = findHttpUrl(content)
                 if (url == null) {
-                    status.text = "コピーを読めません。Braveの「共有 → FloatSaver」をお試しください。"
+                    status.text = "URLを読めません。ブラウザで「共有 → FloatSaver」をお試しください。"
                 } else {
                     input.setText(url)
                     analyze.performClick()
@@ -254,7 +259,7 @@ class OverlayBubbleService : Service() {
         firstRow.addView(analyze, LinearLayout.LayoutParams(0, dp(48), 1f))
         root.addView(firstRow, root.indexOfChild(status))
         val getBraveUrl = Button(this).apply {
-            text = "BraveのURL / コピーを取得"
+            text = "ブラウザのURL / コピーを取得"
             isAllCaps = false
             setOnClickListener {
                 val url = BravePageUrlService.latestUrl() ?: runCatching {
@@ -266,7 +271,7 @@ class OverlayBubbleService : Service() {
                     input.setText(url)
                     analyze.performClick()
                 } else {
-                    status.text = "Braveで「共有 → FloatSaver」またはURLをコピーして貼り付けてください。自動取得には任意のユーザー補助許可が必要です。"
+                    status.text = "ブラウザで「共有 → FloatSaver」かURLコピーを使ってください。自動取得は任意のユーザー補助設定が必要です。"
                 }
             }
         }

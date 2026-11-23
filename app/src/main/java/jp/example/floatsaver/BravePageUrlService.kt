@@ -11,13 +11,16 @@ import android.view.accessibility.AccessibilityNodeInfo
 import java.util.ArrayDeque
 import java.util.Locale
 
-/** Opt-in and read-only Brave URL helper. No history, cookies, or traffic interception. */
+/** Opt-in, browser-address-bar-only URL helper. No browsing history or network capture. */
 class BravePageUrlService : AccessibilityService() {
     companion object {
         @Volatile private var lastUrl: String? = null
         @Volatile private var savedAt = 0L
-        private val packages = setOf("com.brave.browser", "com.brave.browser_beta",
-            "com.brave.browser_dev", "com.brave.browser_nightly")
+        private val packages = setOf(
+            "com.brave.browser", "com.brave.browser_beta", "com.brave.browser_dev", "com.brave.browser_nightly",
+            "com.android.chrome", "com.chrome.beta", "com.chrome.dev", "com.chrome.canary",
+            "com.microsoft.emmx", "com.microsoft.emmx.beta",
+            "org.mozilla.firefox", "com.vivaldi.browser")
 
         fun latestUrl(): String? = lastUrl?.takeIf {
             SystemClock.elapsedRealtime() - savedAt in 0L..45_000L
@@ -52,7 +55,9 @@ class BravePageUrlService : AccessibilityService() {
                 val (node, withinAddressBar) = nodes.removeFirst()
                 val id = node.viewIdResourceName?.substringAfterLast('/')?.lowercase(Locale.ROOT).orEmpty()
                 val addressBar = id.contains("url_bar") || id.contains("location_bar") ||
-                    id.contains("omnibox") || id.contains("url_text")
+                    id.contains("omnibox") || id.contains("url_text") ||
+                    id.contains("url_view") || id.contains("toolbar_url") ||
+                    id.contains("mozac_browser_toolbar_url")
                 if (addressBar || withinAddressBar) {
                     safeUrl(node.text?.toString())?.let { return it }
                     if (addressBar) safeUrl(node.contentDescription?.toString())?.let { return it }
