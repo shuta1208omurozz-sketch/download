@@ -134,6 +134,12 @@
             android:gravity="center" android:text="↕" android:textSize="20sp"
             android:textColor="#2456B8" android:background="#DCE9FF"
             android:contentDescription="下端をドラッグして高さを変更"/>
+        <TextView android:id="@+id/resizeBottomLeftHandle"
+            android:layout_width="42dp" android:layout_height="42dp"
+            android:layout_gravity="bottom|start"
+            android:gravity="center" android:text="↙" android:textSize="25sp"
+            android:textColor="#2456B8" android:background="#C3D9FF"
+            android:contentDescription="左下角を斜めにドラッグして小窓のサイズを変更"/>
         <TextView android:id="@+id/resizeCornerHandle"
             android:layout_width="42dp" android:layout_height="42dp"
             android:layout_gravity="bottom|end"

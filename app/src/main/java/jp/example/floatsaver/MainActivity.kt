@@ -71,7 +71,7 @@ class MainActivity : Activity() {
         }
 
         @Suppress("ClickableViewAccessibility")
-        fun connectResizeHandle(id: Int, horizontal: Boolean, vertical: Boolean) {
+        fun connectResizeHandle(id: Int, horizontalDirection: Int, vertical: Boolean) {
             val handle = findViewById<View>(id)
             var beginX = 0f
             var beginY = 0f
@@ -89,8 +89,9 @@ class MainActivity : Activity() {
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val params = shell.layoutParams as FrameLayout.LayoutParams
-                        if (horizontal) params.width = (startWidth +
-                            (event.rawX - beginX).toInt()).coerceIn(minWidth, maxWidth)
+                        if (horizontalDirection != 0) params.width = (startWidth +
+                            horizontalDirection * (event.rawX - beginX).toInt())
+                            .coerceIn(minWidth, maxWidth)
                         if (vertical) params.height = (startHeight +
                             (event.rawY - beginY).toInt()).coerceIn(minHeight, maxHeight)
                         shell.layoutParams = params
@@ -108,11 +109,12 @@ class MainActivity : Activity() {
                 }
             }
         }
-        // The right, bottom and bottom-right handles resize on horizontal,
-        // vertical and diagonal drag, respectively. The size survives reopening.
-        connectResizeHandle(R.id.resizeRightHandle, true, false)
-        connectResizeHandle(R.id.resizeBottomHandle, false, true)
-        connectResizeHandle(R.id.resizeCornerHandle, true, true)
+        // Dragging the bottom-left corner to the left increases width, while
+        // dragging right decreases it. Bottom and bottom-right are unchanged.
+        connectResizeHandle(R.id.resizeRightHandle, 1, false)
+        connectResizeHandle(R.id.resizeBottomHandle, 0, true)
+        connectResizeHandle(R.id.resizeCornerHandle, 1, true)
+        connectResizeHandle(R.id.resizeBottomLeftHandle, -1, true)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
