@@ -13,7 +13,8 @@
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal">
         <Button android:id="@+id/browserBackButton" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="←戻る"/>
+            android:layout_height="wrap_content" android:text="↩動画に戻る"
+            android:minWidth="0dp" android:textSize="12sp"/>
         <Button android:id="@+id/scanButton" android:layout_width="0dp"
             android:layout_height="wrap_content" android:layout_weight="1" android:text="再生後に検出"/>
         <Button android:id="@+id/pageAnalyzeButton" android:layout_width="0dp"
@@ -28,9 +29,13 @@
         <TextView android:layout_width="0dp" android:layout_weight="1"
             android:layout_height="wrap_content" android:gravity="end"
             android:textSize="11sp" android:textColor="#64748B"
-            android:text="外部移動が必要ならOFF"/>
+            android:text="再生不可ならOFF"/>
         <Button android:id="@+id/originalPageButton" android:layout_width="wrap_content"
-            android:layout_height="40dp" android:text="元ページ"/>
+            android:layout_height="40dp" android:minWidth="0dp"
+            android:textSize="12sp" android:text="前ページ"/>
+        <Button android:id="@+id/browserExitButton" android:layout_width="wrap_content"
+            android:layout_height="40dp" android:minWidth="0dp"
+            android:textSize="12sp" android:text="閉じる"/>
     </LinearLayout>
     <WebView android:id="@+id/browserWebView" android:layout_width="match_parent"
         android:layout_height="0dp" android:layout_weight="1"/>

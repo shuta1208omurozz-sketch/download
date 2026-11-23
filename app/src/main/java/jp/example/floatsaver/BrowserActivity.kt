@@ -57,7 +57,7 @@ class BrowserActivity : Activity() {
     private var restoringPage = false
     private var approvedPlayerUrl: String? = null
     private var quickSaveBusy = false
-    private var lastRootBackAt = 0L
+    private var resetHistoryOnReturn = false
 
     private fun isBlockedUrl(raw: String?): Boolean =
         adBlockingEnabled && !raw.isNullOrBlank() && WebAdBlockRules.shouldBlock(raw)
@@ -70,56 +70,49 @@ class BrowserActivity : Activity() {
      * Do not finish the entire activity just because an ad redirected with
      * replaceState/location.replace, which can leave no WebView back history.
      */
+    /**
+     * One back press must restore the page the user requested, even after a
+     * popup, 5 redirects, or location.replace wiped WebView history. Never
+     * silently finish the whole browser; use the explicit Close button.
+     */
     private fun goBackSafely() {
         val root = userRequestedPage
-        val now = web.url.orEmpty()
-        val history = web.copyBackForwardList()
-        if (web.canGoBack()) {
-            val rootHost = DetectionRules.safeHost(root)
-            val nowHost = DetectionRules.safeHost(now)
-            if (rootHost.isNotBlank() && nowHost.isNotBlank() &&
-                !nowHost.equals(rootHost, ignoreCase = true)) {
-                for (i in history.currentIndex - 1 downTo 0) {
-                    val itemUrl = history.getItemAtIndex(i)?.url.orEmpty()
-                    if (DetectionRules.safeHost(itemUrl).equals(rootHost, true) &&
-                        !WebAdBlockRules.shouldBlock(itemUrl)) {
-                        web.goBackOrForward(i - history.currentIndex)
-                        status.text = "元の動画ページに戻りました。"
-                        return
-                    }
-                }
-                if (root.startsWith("http") && root.substringBefore('#') != now.substringBefore('#')) {
-                    restoreOriginalPage()
-                    return
-                }
-            }
-            web.goBack()
+        if (root.isBlank()) {
+            if (web.canGoBack()) web.goBack()
+            else status.text = "前のページがありません。「閉じる」でブラウザを終了できます。"
             return
         }
-        if (root.startsWith("http") && root.substringBefore('#') != now.substringBefore('#')) {
-            restoreOriginalPage()
-        } else if (root.startsWith("http")) {
-            // Avoid leaving the browser when a page opened a popup or replaced history.
-            val nowMillis = SystemClock.elapsedRealtime()
-            if (nowMillis - lastRootBackAt < 1800L) {
-                finish()
-            } else {
-                lastRootBackAt = nowMillis
-                status.text = "元のページです。ブラウザを閉じる場合はもう一度「戻る」を押してください。"
-            }
-        } else finish()
+        val current = web.url.orEmpty()
+        if (!BrowserReturnLogic.isDifferentPage(root, current)) {
+            status.text = "元の動画ページです。ブラウザを終了する場合は「閉じる」を押してください。"
+            return
+        }
+        val history = web.copyBackForwardList()
+        val historyUrls = (0 until history.size).map {
+            history.getItemAtIndex(it)?.url.orEmpty()
+        }
+        val offset = BrowserReturnLogic.findRootOffset(root, historyUrls, history.currentIndex)
+        resetHistoryOnReturn = true
+        approvedPlayerUrl = null
+        if (offset != null && offset != 0) {
+            web.goBackOrForward(offset)
+            status.text = "動画のページに戻っています。"
+        } else {
+            restoreOriginalPage(force = true)
+        }
     }
 
-    private fun restoreOriginalPage() {
-        if (userRequestedPage.isBlank() || restoringPage) return
+    private fun restoreOriginalPage(force: Boolean = false) {
+        if (userRequestedPage.isBlank() || (restoringPage && !force)) return
         restoringPage = true
+        resetHistoryOnReturn = true
         val original = userRequestedPage
         approvedPlayerUrl = null
         web.stopLoading()
         web.loadUrl(original)
         address.setText(original)
-        status.text = "広告ページから元の動画ページに戻りました。"
-        handler.postDelayed({ restoringPage = false }, 1000L)
+        status.text = "動画のページに戻っています。"
+        handler.postDelayed({ restoringPage = false }, 650L)
     }
 
     // Polling is bounded to a visible activity and does not require a JS bridge.
@@ -224,6 +217,13 @@ class BrowserActivity : Activity() {
                 if (url?.substringBefore('#') != web.url?.substringBefore('#')) return
                 currentPage = url.orEmpty()
                 address.setText(currentPage)
+                if (resetHistoryOnReturn &&
+                    !BrowserReturnLogic.isDifferentPage(userRequestedPage, currentPage)) {
+                    // Prevent the previous ad-redirect chain from reappearing.
+                    resetHistoryOnReturn = false
+                    web.clearHistory()
+                    status.text = "元の動画ページへ戻りました。再生を続けられます。"
+                }
                 scanDom()
                 val serial = loadSerial
                 handler.postDelayed({
@@ -299,9 +299,13 @@ class BrowserActivity : Activity() {
             goBackSafely()
         }
         findViewById<Button>(R.id.originalPageButton).setOnClickListener {
-            if (userRequestedPage.isNotBlank()) restoreOriginalPage()
-            else status.text = "元ページがまだ指定されていません。"
+            if (web.canGoBack()) web.goBack()
+            else if (userRequestedPage.isNotBlank() &&
+                     BrowserReturnLogic.isDifferentPage(userRequestedPage, web.url.orEmpty()))
+                restoreOriginalPage(force = true)
+            else status.text = "前のページがありません。「動画に戻る」を使ってください。"
         }
+        findViewById<Button>(R.id.browserExitButton).setOnClickListener { finish() }
         intent.getStringExtra(KEY_PAGE)?.takeIf { it.isNotBlank() }?.let {
             address.setText(it)
             navigate()
@@ -317,7 +321,7 @@ class BrowserActivity : Activity() {
         if (valid == null) { status.text = "URLを確認してください（http/httpsのみ）"; return }
         userRequestedPage = valid
         approvedPlayerUrl = null
-        lastRootBackAt = 0L
+        resetHistoryOnReturn = false
         restoringPage = false
         web.loadUrl(valid)
     }

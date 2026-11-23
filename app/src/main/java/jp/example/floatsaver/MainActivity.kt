@@ -25,9 +25,13 @@ import android.widget.TextView
 import android.widget.Toast
 import android.widget.FrameLayout
 import android.widget.ScrollView
+import android.widget.BaseAdapter
+import android.view.ViewGroup
+import android.util.TypedValue
 import kotlin.math.min
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.math.abs
 import java.util.Locale
 
 class MainActivity : Activity() {
@@ -52,13 +56,42 @@ class MainActivity : Activity() {
     private var analyzeGeneration = 0
     private var pendingAnalysisUrl = ""
     private var knownVideoCandidate = false
+    private var panelUiScale = 1f
 
     private fun dp(value: Int): Int = (resources.displayMetrics.density * value).toInt()
+
+    /** Spinner rows are created after initial inflation, so scale them too. */
+    private fun <T> scaledAdapter(values: List<T>): ArrayAdapter<T> =
+        object : ArrayAdapter<T>(this, android.R.layout.simple_spinner_item, values) {
+            init { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+            private fun resizeText(view: View): View {
+                (view as? TextView)?.setTextSize(TypedValue.COMPLEX_UNIT_SP,
+                    maxOf(10f, 14f * panelUiScale))
+                return view
+            }
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
+                resizeText(super.getView(position, convertView, parent))
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View =
+                resizeText(super.getDropDownView(position, convertView, parent))
+        }
 
     private fun setupResizablePanel(shell: FrameLayout) {
         val prefs = getSharedPreferences("resizable_window", MODE_PRIVATE)
         val density = resources.displayMetrics.density
         val inset = dp(12)
+        val contentScaler = PanelUiScaler(findViewById(R.id.panelCard))
+
+        fun updateContents(width: Int, height: Int) {
+            val next = PanelUiScaleMath.factor(width, height, density)
+            if (abs(next - panelUiScale) < 0.012f) return
+            panelUiScale = next
+            contentScaler.apply(next)
+            if (::limitSpinner.isInitialized) {
+                listOf(limitSpinner, qualitySpinner, containerSpinner).forEach {
+                    (it.adapter as? BaseAdapter)?.notifyDataSetChanged()
+                }
+            }
+        }
         // FloatSaver is a compact Activity window, not a screen-sized dark backdrop.
         // FLAG_NOT_TOUCH_MODAL allows touches outside its actual window to go to Brave.
         window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -69,8 +102,8 @@ class MainActivity : Activity() {
 
         fun screenWidth() = resources.displayMetrics.widthPixels
         fun screenHeight() = resources.displayMetrics.heightPixels
-        fun minWidth() = minOf(dp(220), (screenWidth() - 2 * inset).coerceAtLeast(1))
-        fun minHeight() = minOf(dp(170), (screenHeight() - 2 * inset).coerceAtLeast(1))
+        fun minWidth() = minOf(dp(200), (screenWidth() - 2 * inset).coerceAtLeast(1))
+        fun minHeight() = minOf(dp(150), (screenHeight() - 2 * inset).coerceAtLeast(1))
         fun maxWidth() = (screenWidth() - 2 * inset).coerceAtLeast(1)
         fun maxHeight() = (screenHeight() - 2 * inset).coerceAtLeast(1)
 
@@ -90,6 +123,7 @@ class MainActivity : Activity() {
                 y = geometry.offsetY.roundToInt()
                 dimAmount = 0f
             }
+            updateContents(geometry.width, geometry.height)
         }
 
         fun currentGeometry() = PanelResizeMath.Geometry(
@@ -115,8 +149,8 @@ class MainActivity : Activity() {
         }
 
         fun defaultGeometry() = fitToScreen(PanelResizeMath.Geometry(
-            minOf(dp(320), maxWidth()),
-            minOf(dp(350), maxOf((screenHeight() * 0.45f).roundToInt(), minHeight())),
+            minOf(dp(280), maxWidth()),
+            minOf(dp(300), maxOf((screenHeight() * 0.40f).roundToInt(), minHeight())),
             0f, 0f
         ))
         val saved = PanelResizeMath.Geometry(
@@ -276,8 +310,7 @@ class MainActivity : Activity() {
         analyzeButton.setOnClickListener { analyze() }
         downloadButton.setOnClickListener { download() }
         overlayButton.setOnClickListener { toggleOverlay() }
-        limitSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
-            MediaEngine.SIZE_LIMIT_LABELS)
+        limitSpinner.adapter = scaledAdapter(MediaEngine.SIZE_LIMIT_LABELS.toList())
         limitSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 refreshChoices()
@@ -408,12 +441,12 @@ class MainActivity : Activity() {
         activeChoices = details?.qualities?.filter { choice ->
             maxBytes == null || choice.estimatedBytes == null || choice.estimatedBytes <= maxBytes
         }.orEmpty()
-        qualitySpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
+        qualitySpinner.adapter = scaledAdapter(
             if (activeChoices.isEmpty()) listOf("該当する画質がありません") else activeChoices)
         val selected = activeChoices.indexOfFirst { it.formatSelector == previousSelection }
         if (selected >= 0) qualitySpinner.setSelection(selected)
         val gif = details?.isGif == true
-        containerSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
+        containerSpinner.adapter = scaledAdapter(
             when {
                 gif -> listOf("GIF（オリジナル）")
                 details?.qualities?.any { it.formatSelector == "direct" || it.formatSelector.startsWith("direct:") } == true ->
