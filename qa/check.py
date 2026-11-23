@@ -50,6 +50,13 @@ assert 'getBrowserUrlWithoutRedirect()' in (files / 'MainActivity.kt').read_text
 assert 'R.id.panelBackdrop' in (files / 'MainActivity.kt').read_text()
 assert 'R.id.fallbackBrowserButton' in (files / 'MainActivity.kt').read_text()
 assert 'R.id.versionText' in (files / 'MainActivity.kt').read_text()
+assert 'R.id.urlCaptureStatus' in (files / 'MainActivity.kt').read_text()
+main_source = (files / 'MainActivity.kt').read_text()
+auto_handler = main_source.split('private fun getBrowserUrlWithoutRedirect()', 1)[1].split('private fun updateUrlCaptureStatus()', 1)[0]
+assert 'CLIPBOARD_SERVICE' not in auto_handler, 'Automatic URL capture must not fall back to stale clipboard'
+overlay_source = (files / 'OverlayBubbleService.kt').read_text()
+assert 'putExtra("autoPaste", true)' not in overlay_source, 'Bubble must never auto-reuse clipboard'
+assert 'SystemClock.elapsedRealtime() - savedAt in 0L..12_000L' in (files / 'BravePageUrlService.kt').read_text()
 assert '900L' in (files / 'OverlayBubbleService.kt').read_text()
 assert 'com.android.chrome' in (files / 'BravePageUrlService.kt').read_text()
 assert 'networkHint' in (files / 'BrowserActivity.kt').read_text()

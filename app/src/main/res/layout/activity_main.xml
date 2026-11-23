@@ -35,7 +35,11 @@
                 android:inputType="textUri" android:singleLine="true" android:minHeight="48dp"
                 android:hint="URLを入力・貼り付け" android:textColor="#14213D"/>
             <Button android:id="@+id/braveUrlButton" android:layout_width="match_parent"
-                android:layout_height="44dp" android:text="ブラウザのURLを取得して調べる"/>
+                android:layout_height="44dp" android:text="ブラウザのURLを自動取得"/>
+            <TextView android:id="@+id/urlCaptureStatus" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:textSize="11sp"
+                android:paddingStart="8dp" android:paddingEnd="8dp"
+                android:textColor="#64748B" android:text="自動取得：設定確認中"/>
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal">
                 <Button android:id="@+id/pasteButton" android:layout_width="0dp"

@@ -120,8 +120,10 @@ class OverlayBubbleService : Service() {
                         runCatching {
                             startActivity(Intent(this, MainActivity::class.java).apply {
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                                BravePageUrlService.latestUrl()?.let { putExtra("sourceUrl", it) }
-                                    ?: putExtra("autoPaste", true)
+                                if (BravePageUrlService.isEnabled(this@OverlayBubbleService)) {
+                                    (if (BravePageUrlService.isEnabled(this)) BravePageUrlService.latestUrl() else null)?.let { putExtra("sourceUrl", it) }
+                                        ?: putExtra("captureRequested", true)
+                                } else putExtra("captureRequested", true)
                             })
                         }.onFailure { showPanel() }
                     }
@@ -259,19 +261,18 @@ class OverlayBubbleService : Service() {
         firstRow.addView(analyze, LinearLayout.LayoutParams(0, dp(48), 1f))
         root.addView(firstRow, root.indexOfChild(status))
         val getBraveUrl = Button(this).apply {
-            text = "ブラウザのURL / コピーを取得"
+            text = "ブラウザのURLを自動取得"
             isAllCaps = false
             setOnClickListener {
-                val url = BravePageUrlService.latestUrl() ?: runCatching {
-                    val cb = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    findHttpUrl(cb.primaryClip?.getItemAt(0)
-                        ?.coerceToText(this@OverlayBubbleService)?.toString().orEmpty())
-                }.getOrNull()
+                val url = if (BravePageUrlService.isEnabled(this@OverlayBubbleService))
+                    BravePageUrlService.latestUrl() else null
                 if (url != null) {
                     input.setText(url)
                     analyze.performClick()
                 } else {
-                    status.text = "ブラウザで「共有 → FloatSaver」かURLコピーを使ってください。自動取得は任意のユーザー補助設定が必要です。"
+                    status.text = if (!BravePageUrlService.isEnabled(this@OverlayBubbleService))
+                        "自動取得は未許可です。ユーザー補助でFloatSaverを有効にするか、ブラウザから共有してください。"
+                    else "新しいURLが検出できません。ブラウザから共有するか「URLを貼り付け」を使ってください。"
                 }
             }
         }

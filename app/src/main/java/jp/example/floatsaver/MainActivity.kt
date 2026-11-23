@@ -149,6 +149,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (::overlayButton.isInitialized) updateOverlayButton()
+        updateUrlCaptureStatus()
     }
 
     private fun openBrowserFromUrl() {
@@ -168,31 +169,45 @@ class MainActivity : Activity() {
             referer = incoming?.getStringExtra("sourceReferer")
             userAgent = incoming?.getStringExtra("sourceUserAgent")
             analyze()
-        } else if (incoming?.getBooleanExtra("autoPaste", false) == true) {
-            // Don't redirect users to Accessibility Settings. Copy/Share work without it.
+        } else if (incoming?.getBooleanExtra("captureRequested", false) == true) {
             getBrowserUrlWithoutRedirect()
+        }
+        // A launcher can reuse its Intent after returning from Recents.
+        // Consume each hand-off once instead of reusing an old page URL.
+        incoming?.removeExtra("sourceUrl")
+        incoming?.removeExtra("sourceReferer")
+        incoming?.removeExtra("sourceUserAgent")
+        incoming?.removeExtra("captureRequested")
+        incoming?.removeExtra("autoPaste")
+        if (incoming?.action == Intent.ACTION_SEND) {
+            incoming.removeExtra(Intent.EXTRA_TEXT)
+            incoming.action = null
         }
     }
 
     private fun getBrowserUrlWithoutRedirect() {
-        val fromBrowser = BravePageUrlService.latestUrl()
-        if (fromBrowser != null) {
-            urlInput.setText(fromBrowser)
-            analyze()
+        if (!BravePageUrlService.isEnabled(this)) {
+            statusText.text = "自動取得は未許可です。ユーザー補助でFloatSaverを有効にするか、ブラウザから「共有 → FloatSaver」を選んでください。"
+            updateUrlCaptureStatus()
             return
         }
-        // The user explicitly pressed this button. Clipboard access is requested only
-        // from the foreground Activity, not from an inaccessible background service.
-        val clip = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-        val copied = runCatching {
-            findHttpUrl(clip.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty())
-        }.getOrNull()
-        if (copied != null) {
-            urlInput.setText(copied)
-            analyze()
-        } else {
-            statusText.text = "ブラウザで「共有 → FloatSaver」を選ぶか、URLをコピーしてください。自動取得には任意のユーザー補助権限が必要です。"
+        val freshUrl = BravePageUrlService.latestUrl()
+        if (freshUrl == null) {
+            statusText.text = "現在のブラウザURLが検出されません。URL欄を表示して戻るか、ブラウザから「共有 → FloatSaver」を選んでください。以前コピーしたURLは自動では使いません。"
+            return
         }
+        urlInput.setText(freshUrl)
+        analyze()
+    }
+
+    private fun updateUrlCaptureStatus() {
+        if (!::urlInput.isInitialized) return
+        findViewById<TextView>(R.id.urlCaptureStatus).text =
+            if (BravePageUrlService.isEnabled(this)) {
+                "自動取得：許可済み。URLを取得できない場合は「共有」を使用"
+            } else {
+                "自動取得：未許可（任意）。共有・URLコピーなら許可不要"
+            }
     }
 
     private fun pasteFromClipboard(analyzeImmediately: Boolean = false) {
@@ -204,6 +219,8 @@ class MainActivity : Activity() {
         val url = findHttpUrl(raw)
         if (url == null) {
             statusText.text = "URLを取得できませんでした。ブラウザで「共有 → FloatSaver」を選ぶか、URLをコピーしてください。"
+        } else if (url == urlInput.text.toString().trim()) {
+            statusText.text = "クリップボードは前回と同じURLです。別のページをコピーするか、「動画を調べる」で再解析できます。"
         } else {
             referer = null
             userAgent = null

@@ -23,7 +23,7 @@ class BravePageUrlService : AccessibilityService() {
             "org.mozilla.firefox", "com.vivaldi.browser")
 
         fun latestUrl(): String? = lastUrl?.takeIf {
-            SystemClock.elapsedRealtime() - savedAt in 0L..45_000L
+            SystemClock.elapsedRealtime() - savedAt in 0L..12_000L
         }
 
         fun isEnabled(context: Context): Boolean {
@@ -78,14 +78,19 @@ class BravePageUrlService : AccessibilityService() {
         if (observedEvent.eventType !in setOf(AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
                 AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED, AccessibilityEvent.TYPE_VIEW_FOCUSED,
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED)) return
+        // Navigating to another browser window/tab invalidates the old page,
+        // even if the new omnibox is not yet in the accessibility tree.
+        if (observedEvent.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            lastUrl = null
+            savedAt = 0L
+        }
         val now = SystemClock.elapsedRealtime()
-        if (now - lastInspection < 350L) return
+        if (observedEvent.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            now - lastInspection < 250L) return
         lastInspection = now
         val url = rootInActiveWindow?.let { addressBarUrl(it) }
         if (url == null) {
-            // Never hand back the URL from a previous tab after a browser navigation.
-            if (observedEvent.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-                observedEvent.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
+            if (observedEvent.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) {
                 lastUrl = null
                 savedAt = 0L
             }
