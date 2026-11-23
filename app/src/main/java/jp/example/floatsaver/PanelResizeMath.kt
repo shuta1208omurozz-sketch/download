@@ -6,6 +6,17 @@ import kotlin.math.roundToInt
 object PanelResizeMath {
     data class Geometry(val width: Int, val height: Int, val offsetX: Float, val offsetY: Float)
 
+    /** Move the whole panel and clamp it to the viewport. */
+    fun moved(start: Geometry, dx: Float, dy: Float,
+              parentWidth: Int, parentHeight: Int, margin: Int): Geometry {
+        val maxX = ((parentWidth - start.width) / 2f - margin).coerceAtLeast(0f)
+        val maxY = ((parentHeight - start.height) / 2f - margin).coerceAtLeast(0f)
+        return start.copy(
+            offsetX = (start.offsetX + dx).coerceIn(-maxX, maxX),
+            offsetY = (start.offsetY + dy).coerceIn(-maxY, maxY)
+        )
+    }
+
     fun resized(
         start: Geometry, dx: Float, dy: Float,
         horizontalDirection: Int, vertical: Boolean,

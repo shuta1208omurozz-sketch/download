@@ -9,6 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.MotionEvent
+import android.view.Gravity
+import android.view.WindowManager
 import android.provider.Settings
 import android.view.View
 import android.text.Editable
@@ -25,6 +27,7 @@ import android.widget.FrameLayout
 import android.widget.ScrollView
 import kotlin.math.min
 import kotlin.math.max
+import kotlin.math.roundToInt
 import java.util.Locale
 
 class MainActivity : Activity() {
@@ -53,104 +56,162 @@ class MainActivity : Activity() {
     private fun dp(value: Int): Int = (resources.displayMetrics.density * value).toInt()
 
     private fun setupResizablePanel(shell: FrameLayout) {
-        val preferences = getSharedPreferences("resizable_window", MODE_PRIVATE)
-        val marginPx = dp(12)
-        val maxWidth = (resources.displayMetrics.widthPixels - dp(24)).coerceAtLeast(dp(1))
-        val maxHeight = (resources.displayMetrics.heightPixels - dp(28)).coerceAtLeast(dp(1))
-        val minWidth = min(dp(220), maxWidth)
-        val minHeight = min(dp(170), maxHeight)
-        val defaultWidth = min(maxWidth, dp(370))
-        val defaultHeight = min(maxHeight, maxOf(
-            (resources.displayMetrics.heightPixels * 0.52f).toInt(), minHeight)
-        ).coerceAtLeast(minHeight)
-        val savedWidth = preferences.getInt("widthDp", 0).takeIf { it > 0 }
-            ?.let { dp(it) }?.coerceIn(minWidth, maxWidth) ?: defaultWidth
-        val savedHeight = preferences.getInt("heightDp", 0).takeIf { it > 0 }
-            ?.let { dp(it) }?.coerceIn(minHeight, maxHeight) ?: defaultHeight
-        shell.layoutParams = (shell.layoutParams as FrameLayout.LayoutParams).apply {
-            width = savedWidth
-            height = savedHeight
+        val prefs = getSharedPreferences("resizable_window", MODE_PRIVATE)
+        val density = resources.displayMetrics.density
+        val inset = dp(12)
+        // FloatSaver is a compact Activity window, not a screen-sized dark backdrop.
+        // FLAG_NOT_TOUCH_MODAL allows touches outside its actual window to go to Brave.
+        window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setGravity(Gravity.CENTER)
+        window.setBackgroundDrawableResource(android.R.color.transparent)
+
+        fun screenWidth() = resources.displayMetrics.widthPixels
+        fun screenHeight() = resources.displayMetrics.heightPixels
+        fun minWidth() = minOf(dp(220), (screenWidth() - 2 * inset).coerceAtLeast(1))
+        fun minHeight() = minOf(dp(170), (screenHeight() - 2 * inset).coerceAtLeast(1))
+        fun maxWidth() = (screenWidth() - 2 * inset).coerceAtLeast(1)
+        fun maxHeight() = (screenHeight() - 2 * inset).coerceAtLeast(1)
+
+        fun applySizeAndPosition(geometry: PanelResizeMath.Geometry) {
+            shell.layoutParams = (shell.layoutParams as FrameLayout.LayoutParams).apply {
+                width = geometry.width
+                height = geometry.height
+            }
+            // Keep the content entirely inside a small, non-modal window.
+            // Moving this window (rather than a child translation) avoids clipping
+            // its resize handles at the old window boundary.
+            window.attributes = window.attributes.apply {
+                width = geometry.width + 2 * inset
+                height = geometry.height + 2 * inset
+                gravity = Gravity.CENTER
+                x = geometry.offsetX.roundToInt()
+                y = geometry.offsetY.roundToInt()
+                dimAmount = 0f
+            }
         }
 
-        fun saveSize() {
-            val density = resources.displayMetrics.density
-            preferences.edit()
-                .putInt("widthDp", (shell.width / density).toInt().coerceAtLeast(1))
-                .putInt("heightDp", (shell.height / density).toInt().coerceAtLeast(1))
+        fun currentGeometry() = PanelResizeMath.Geometry(
+            shell.width.takeIf { it > 0 }
+                ?: (shell.layoutParams as FrameLayout.LayoutParams).width,
+            shell.height.takeIf { it > 0 }
+                ?: (shell.layoutParams as FrameLayout.LayoutParams).height,
+            window.attributes.x.toFloat(), window.attributes.y.toFloat())
+
+        fun fitToScreen(geometry: PanelResizeMath.Geometry): PanelResizeMath.Geometry =
+            PanelResizeMath.resized(geometry, 0f, 0f, 0, false,
+                minWidth(), maxWidth(), minHeight(), maxHeight(),
+                screenWidth(), screenHeight(), inset)
+
+        fun saveState() {
+            val geom = fitToScreen(currentGeometry())
+            prefs.edit()
+                .putInt("widthDp", (geom.width / density).roundToInt())
+                .putInt("heightDp", (geom.height / density).roundToInt())
+                .putInt("offsetXDp", (geom.offsetX / density).roundToInt())
+                .putInt("offsetYDp", (geom.offsetY / density).roundToInt())
                 .apply()
         }
 
+        fun defaultGeometry() = fitToScreen(PanelResizeMath.Geometry(
+            minOf(dp(370), maxWidth()),
+            minOf(dp(420), maxOf((screenHeight() * 0.52f).roundToInt(), minHeight())),
+            0f, 0f
+        ))
+        val saved = PanelResizeMath.Geometry(
+            prefs.getInt("widthDp", 0).takeIf { it > 0 }?.let { dp(it) }
+                ?: defaultGeometry().width,
+            prefs.getInt("heightDp", 0).takeIf { it > 0 }?.let { dp(it) }
+                ?: defaultGeometry().height,
+            dp(prefs.getInt("offsetXDp", 0)).toFloat(),
+            dp(prefs.getInt("offsetYDp", 0)).toFloat()
+        )
+        applySizeAndPosition(fitToScreen(saved))
+
         findViewById<Button>(R.id.resetPanelSizeButton).setOnClickListener {
-            shell.layoutParams = (shell.layoutParams as FrameLayout.LayoutParams).apply {
-                width = defaultWidth
-                height = defaultHeight
-            }
-            shell.translationX = 0f
-            shell.translationY = 0f
-            shell.post { saveSize() }
+            applySizeAndPosition(defaultGeometry())
+            shell.post { saveState() }
         }
 
-        // The actual parent can be smaller than displayMetrics because of system
-        // bars or rotation. Make the restored panel reachable inside its parent.
-        shell.post {
-            val parent = shell.parent as? View ?: return@post
-            val usableWidth = (parent.width - 2 * marginPx).coerceAtLeast(1)
-            val usableHeight = (parent.height - 2 * marginPx).coerceAtLeast(1)
-            val params = shell.layoutParams as FrameLayout.LayoutParams
-            if (params.width > usableWidth || params.height > usableHeight) {
-                params.width = params.width.coerceAtMost(usableWidth)
-                params.height = params.height.coerceAtMost(usableHeight)
-                shell.layoutParams = params
-            }
-        }
+        // Re-clamp on resume after system insets, rotation or split-screen change.
+        shell.post { applySizeAndPosition(fitToScreen(currentGeometry())) }
 
         @Suppress("ClickableViewAccessibility")
-        fun connectResizeHandle(id: Int, horizontalDirection: Int, vertical: Boolean) {
+        fun attachResizeHandle(id: Int, direction: Int, vertical: Boolean) {
             val handle = findViewById<View>(id)
-            var beginX = 0f
-            var beginY = 0f
-            var initial = PanelResizeMath.Geometry(0, 0, 0f, 0f)
+            var startX = 0f
+            var startY = 0f
+            var start = defaultGeometry()
             handle.setOnTouchListener { _, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        beginX = event.rawX
-                        beginY = event.rawY
-                        initial = PanelResizeMath.Geometry(
-                            shell.width, shell.height, shell.translationX, shell.translationY)
+                        startX = event.rawX
+                        startY = event.rawY
+                        start = currentGeometry()
                         shell.parent.requestDisallowInterceptTouchEvent(true)
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        val parent = shell.parent as? View
-                        val resized = PanelResizeMath.resized(
-                            initial, event.rawX - beginX, event.rawY - beginY,
-                            horizontalDirection, vertical, minWidth, maxWidth,
-                            minHeight, maxHeight,
-                            parent?.width?.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels,
-                            parent?.height?.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels,
-                            marginPx
+                        val newGeometry = PanelResizeMath.resized(
+                            start, event.rawX - startX, event.rawY - startY,
+                            direction, vertical, minWidth(), maxWidth(),
+                            minHeight(), maxHeight(), screenWidth(), screenHeight(), inset
                         )
-                        shell.layoutParams = (shell.layoutParams as FrameLayout.LayoutParams).apply {
-                            width = resized.width
-                            height = resized.height
-                        }
-                        shell.translationX = resized.offsetX
-                        shell.translationY = resized.offsetY
+                        applySizeAndPosition(newGeometry)
                         true
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        saveSize()
+                        saveState()
                         shell.parent.requestDisallowInterceptTouchEvent(false)
                         true
                     }
-                    else -> false
+                    else -> true
                 }
             }
         }
-        connectResizeHandle(R.id.resizeRightHandle, 1, false)
-        connectResizeHandle(R.id.resizeBottomHandle, 0, true)
-        connectResizeHandle(R.id.resizeCornerHandle, 1, true)
-        connectResizeHandle(R.id.resizeBottomLeftHandle, -1, true)
+        attachResizeHandle(R.id.resizeRightHandle, 1, false)
+        attachResizeHandle(R.id.resizeBottomHandle, 0, true)
+        attachResizeHandle(R.id.resizeCornerHandle, 1, true)
+        attachResizeHandle(R.id.resizeBottomLeftHandle, -1, true)
+
+        // Dedicated drag handle to move the panel without changing its size.
+        val moveHandle = findViewById<View>(R.id.panelMoveHandle)
+        var moveStartX = 0f
+        var moveStartY = 0f
+        var moveInitial = defaultGeometry()
+        moveHandle.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    moveStartX = event.rawX
+                    moveStartY = event.rawY
+                    moveInitial = currentGeometry()
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val moved = PanelResizeMath.moved(moveInitial,
+                        event.rawX - moveStartX, event.rawY - moveStartY,
+                        screenWidth(), screenHeight(), inset)
+                    applySizeAndPosition(moved)
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    saveState()
+                    true
+                }
+                else -> true
+            }
+        }
+    }
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_OUTSIDE) {
+            // Outside touches pass through to the other app and also dismiss
+            // FloatSaver so the floating bubble remains readily accessible.
+            finish()
+            return true
+        }
+        return super.dispatchTouchEvent(event)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

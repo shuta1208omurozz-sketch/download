@@ -36,6 +36,24 @@ class PanelResizeMathTest {
         assertTrue(kotlin.math.abs(result.offsetY) <= (330f - result.height) / 2f - 12f)
     }
 
+    @Test fun movingPanelNeverChangesDimensionsOrLeavesScreen() {
+        val moved = PanelResizeMath.moved(start, 9999f, -9999f, 600, 600, 12)
+        assertEquals(300, moved.width)
+        assertEquals(240, moved.height)
+        assertEquals(138f, moved.offsetX, 0.001f)
+        assertEquals(-168f, moved.offsetY, 0.001f)
+    }
+
+    @Test fun rotatingClampsStoredDimensionsAndOffsets() {
+        val previous = PanelResizeMath.Geometry(600, 900, 220f, 350f)
+        val resized = PanelResizeMath.resized(previous, 0f, 0f, 0, false,
+            180, 320, 170, 450, 344, 490, 12)
+        assertEquals(320, resized.width)
+        assertEquals(450, resized.height)
+        assertTrue(kotlin.math.abs(resized.offsetX) <= 0.01f)
+        assertTrue(kotlin.math.abs(resized.offsetY) <= 8f)
+    }
+
     @Test fun horizontalOnlyDoesNotAlterHeight() {
         val result = PanelResizeMath.resized(start, -42f, 78f, 1, false,
             210, 500, 160, 500, 600, 600, 12)

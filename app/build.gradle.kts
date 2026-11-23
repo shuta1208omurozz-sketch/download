@@ -11,8 +11,8 @@ android {
         applicationId = "jp.example.floatsaver"
         minSdk = 29
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.19-alpha"
+        versionCode = 20
+        versionName = "0.20-alpha"
         // Lightweight APK for arm64 Android phones, including Xiaomi 13T.
         ndk {
             abiFilters.add("arm64-v8a")
