@@ -93,10 +93,10 @@ jobs:
           from pathlib import Path
           import os
 
-          apk = Path("app/build/outputs/apk/debug/app-debug.apk")
+          apk = Path("app/build/outputs/apk/debug/app-arm64-debug.apk")
           if not apk.is_file() or apk.stat().st_size == 0:
               raise SystemExit("Missing compiled APK")
-          new_name = f"FloatSaver-v{os.environ['APP_VERSION']}-build{os.environ['GITHUB_RUN_NUMBER']}-debug.apk"
+          new_name = f"FloatSaver-v{os.environ['APP_VERSION']}-build{os.environ['GITHUB_RUN_NUMBER']}-arm64-debug.apk"
           target = apk.with_name(new_name)
           apk.rename(target)
           print(f"Downloadable APK: {target}")
@@ -105,8 +105,8 @@ jobs:
       - name: Upload versioned APK
         uses: actions/upload-artifact@v4
         with:
-          name: FloatSaver-v${{ steps.version.outputs.name }}-build${{ github.run_number }}-APK
-          path: app/build/outputs/apk/debug/FloatSaver-v*-debug.apk
+          name: FloatSaver-v${{ steps.version.outputs.name }}-build${{ github.run_number }}-arm64-APK
+          path: app/build/outputs/apk/debug/FloatSaver-v*-arm64-debug.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -116,7 +116,7 @@ jobs:
           APP_VERSION: ${{ steps.version.outputs.name }}
         run: |
           set -euo pipefail
-          APK="app/build/outputs/apk/debug/FloatSaver-v${APP_VERSION}-build${GITHUB_RUN_NUMBER}-debug.apk"
+          APK="app/build/outputs/apk/debug/FloatSaver-v${APP_VERSION}-build${GITHUB_RUN_NUMBER}-arm64-debug.apk"
           APKSIGNER="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n1)"
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --min-sdk-version 29 --verbose --print-certs "$APK"
@@ -127,16 +127,19 @@ jobs:
           APP_VERSION: ${{ steps.version.outputs.name }}
         run: |
           set -euo pipefail
-          APK="app/build/outputs/apk/debug/FloatSaver-v${APP_VERSION}-build${GITHUB_RUN_NUMBER}-debug.apk"
-          NOTES="Android用FloatSaverのテスト版APKです。ZIP解凍不要で直接インストールできます。アプリのアップデートには同じ署名を使用しています。"
+          APK="app/build/outputs/apk/debug/FloatSaver-v${APP_VERSION}-build${GITHUB_RUN_NUMBER}-arm64-debug.apk"
+          # Stable one-tap URL plus a second version-labeled asset for clarity.
+          STABLE_APK="app/build/outputs/apk/debug/FloatSaver-Android-arm64.apk"
+          cp "$APK" "$STABLE_APK"
+          NOTES="Android 64-bit用FloatSaverのテスト版APKです。ZIP解凍不要。最新版の固定リンク: https://github.com/${GITHUB_REPOSITORY}/releases/download/latest-debug/FloatSaver-Android-arm64.apk。署名鍵を継続使用しています。"
           if gh release view latest-debug >/dev/null 2>&1; then
             for old_id in $(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/latest-debug" --jq '.assets[].id'); do
               gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${old_id}"
             done
-            gh release upload latest-debug "$APK"
+            gh release upload latest-debug "$APK" "$STABLE_APK"
             gh release edit latest-debug --title "FloatSaver v${APP_VERSION} (build ${GITHUB_RUN_NUMBER})" --notes "$NOTES"
           else
-            gh release create latest-debug "$APK" --target "$GITHUB_SHA" \
+            gh release create latest-debug "$APK" "$STABLE_APK" --target "$GITHUB_SHA" \
               --title "FloatSaver v${APP_VERSION} (build ${GITHUB_RUN_NUMBER})" \
               --notes "$NOTES" --prerelease
           fi

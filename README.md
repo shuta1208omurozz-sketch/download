@@ -43,3 +43,15 @@ GitHubの **[FloatSaver 最新APK](https://github.com/shuta1208omurozz-sketch/do
 新しいAPKは毎回同じ署名になるよう、暗号化した署名鍵 `signing/floatsaver-signing.p12.enc.b64` を使用します。秘密鍵を公開しないため、GitHubリポジトリの **Settings → Secrets and variables → Actions → New repository secret** に `FLOATSAVER_SIGNING_SECRET` を**一度だけ**登録してください。この値は公開リポジトリにコミットしないでください。未設定の場合、署名なしのAPKが公開されないよう自動ビルドは失敗します。
 
 すでにインストールされているAPKが別の署名鍵で作成されている場合、**最初の一回はアンインストールが必要**です。この署名設定でインストールした後は、その後の更新版を原則として上書きできます。同じ署名鍵を使ってもAndroidのアプリ側でバージョンコードが小さくなると上書きできないため、今後は `versionCode` を増やして更新してください。署名鍵の復号文字列は紛失すると復元できないため、安全に保管してください。
+
+
+## 軽量化・ZIPなしの直接インストール（v0.10以降）
+
+v0.10ではAPKをarm64-v8a専用にし、利用しないCPUアーキテクチャのPython/FFmpegを除いてダウンロード容量を削減しています。Xiaomi 13Tなどの64-bit Androidスマートフォン用で、32-bit専用機やx86エミュレーターにはインストールできません。動画の解析・変換機能は削除していません。
+
+最新版APKをZIPなしで取得する固定URL：
+https://github.com/shuta1208omurozz-sketch/download/releases/download/latest-debug/FloatSaver-Android-arm64.apk
+
+Releaseにはバージョン付き `FloatSaver-v0.10-alpha-build番号-arm64-debug.apk` も同時公開します（中身は同じです）。署名鍵を維持してアプリのバージョン番号を上げれば、以降は原則上書きインストールできます。
+
+Android/Brave自身のダウンロード管理の不具合はアプリ側から直接修正できません。APK軽量化は改善策であり、Braveでの完了動作を保証するものではありません。

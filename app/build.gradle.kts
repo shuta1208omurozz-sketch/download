@@ -11,8 +11,12 @@ android {
         applicationId = "jp.example.floatsaver"
         minSdk = 29
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.9-alpha"
+        versionCode = 10
+        versionName = "0.10-alpha"
+        // Lightweight APK for arm64 Android phones, including Xiaomi 13T.
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
     }
     // CI reads the stable signing key from an encrypted repository file.
     // Local builds without these env vars can still use the standard debug key.
