@@ -8,6 +8,8 @@ object ErrorHints {
         val message = generateSequence(error) { it.cause }.take(3)
             .joinToString(" ") { it.message.orEmpty() }.lowercase(Locale.ROOT)
         return when {
+            "401" in message || "unauthorized" in message ->
+                "動画へのアクセスに認証が必要です（401）。内蔵ブラウザのログイン状態やURLの期限を確認してください。"
             "403" in message || "forbidden" in message -> "アクセスが拒否されました（403）。期限切れURLやログイン制限の可能性があります。"
             "404" in message || "not found" in message -> "動画が見つかりません（404）。URLを確認してください。"
             "429" in message || "too many requests" in message -> "アクセスが集中しています（429）。時間をおいてやり直してください。"

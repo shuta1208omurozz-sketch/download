@@ -296,7 +296,7 @@ class BrowserActivity : Activity() {
                     val derived = DetectionRules.kind(url)
                     val kind = if (source == "iframe") "プレイヤー" else
                         derived ?: when (source) {
-                            "video", "playing-video", "video-attribute", "video-meta" -> "動画"
+                            "video", "playing-video", "video-attribute", "video-meta", "video-network" -> "動画"
                             "stream-attribute" -> "配信"
                             else -> null
                         }
@@ -312,7 +312,7 @@ class BrowserActivity : Activity() {
                         "resource" -> 2
                         "iframe" -> 1
                         "jsonld" -> 3
-                        "source-data", "video-attribute", "video-meta", "stream-attribute" -> 3
+                        "source-data", "video-attribute", "video-meta", "stream-attribute", "video-network" -> 3
                         "image" -> 3
                         "link" -> 1
                         else -> 2

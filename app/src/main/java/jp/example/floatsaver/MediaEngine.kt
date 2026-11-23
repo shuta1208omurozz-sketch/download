@@ -119,18 +119,6 @@ object MediaEngine {
      */
     private data class DirectProbe(val extension: String, val bytes: Long?)
 
-    private fun videoMimeExtension(mime: String): String? = when (mime) {
-        "video/mp4", "video/x-m4v" -> "mp4"
-        "video/webm" -> "webm"
-        "video/x-matroska" -> "mkv"
-        "video/quicktime" -> "mov"
-        "video/3gpp", "video/3gpp2" -> "3gp"
-        "video/mp2t" -> "ts"
-        "video/x-flv" -> "flv"
-        "video/x-msvideo", "video/avi" -> "avi"
-        else -> null
-    }
-
     /**
      * URL paths do not always end in .mp4/.webm.
      * The extensionless path is examined only after in-WebView playback/media evidence.
@@ -153,10 +141,10 @@ object MediaEngine {
                 val code = connection.responseCode
                 val mime = connection.contentType.orEmpty()
                     .substringBefore(';').trim().lowercase(Locale.ROOT)
-                val extension = pathExtension ?: videoMimeExtension(mime)
+                val extension = pathExtension ?: DirectMediaHints.extensionForVideoMime(mime)
                 if (code !in 200..299 || extension == null ||
                     (mime.isNotEmpty() && !acceptedDirectMediaType(mime)) ||
-                    (pathExtension == null && videoMimeExtension(mime) == null)) {
+                    (pathExtension == null && DirectMediaHints.extensionForVideoMime(mime) == null)) {
                     throw IOException("Direct video probe rejected")
                 }
                 val bytes = if (code == 206) {
@@ -237,11 +225,7 @@ object MediaEngine {
             }
             if (connection.responseCode == 206) {
                 val range = connection.getHeaderField("Content-Range").orEmpty()
-                val match = Regex("""bytes (\\d+)-(\\d+)/(\\d+)""")
-                    .matchEntire(range)
-                if (match == null || match.groupValues[1] != "0" ||
-                    match.groupValues[2].toLongOrNull()?.plus(1) !=
-                    match.groupValues[3].toLongOrNull()) {
+                if (!DirectMediaHints.isCompleteRange(range)) {
                     throw IOException("動画の一部分のみ受信しました")
                 }
             }

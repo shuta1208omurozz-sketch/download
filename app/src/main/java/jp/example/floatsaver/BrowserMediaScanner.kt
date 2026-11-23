@@ -78,7 +78,9 @@ object BrowserMediaScanner {
             const now = typeof performance.now === 'function' ? performance.now() : null;
             performance.getEntriesByType('resource').slice(-100).forEach(el => {
               if (now === null || !Number.isFinite(el.responseEnd) ||
-                  now - el.responseEnd < 120000) add(el.name, 'resource');
+                  now - el.responseEnd < 120000) {
+                add(el.name, el.initiatorType === 'video' ? 'video-network' : 'resource');
+              }
             });
           }
           return items;
