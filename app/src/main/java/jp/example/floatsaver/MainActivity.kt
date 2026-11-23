@@ -115,8 +115,8 @@ class MainActivity : Activity() {
         }
 
         fun defaultGeometry() = fitToScreen(PanelResizeMath.Geometry(
-            minOf(dp(370), maxWidth()),
-            minOf(dp(420), maxOf((screenHeight() * 0.52f).roundToInt(), minHeight())),
+            minOf(dp(320), maxWidth()),
+            minOf(dp(350), maxOf((screenHeight() * 0.45f).roundToInt(), minHeight())),
             0f, 0f
         ))
         val saved = PanelResizeMath.Geometry(
