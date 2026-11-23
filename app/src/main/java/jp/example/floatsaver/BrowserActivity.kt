@@ -151,7 +151,11 @@ class BrowserActivity : Activity() {
             status.text = if (checked)
                 "広告ブロックをONにしました。動画が再生できない場合はOFFにしてください。"
             else "広告ブロックをOFFにしました。広告ページが開いても「戻る」で元ページへ戻れます。"
-            web.url?.takeIf { it.startsWith("http") }?.let { web.reload() }
+            web.url?.takeIf { it.startsWith("http") }?.let { current ->
+                if (checked && isBlockedUrl(current) && userRequestedPage.isNotBlank())
+                    restoreOriginalPage()
+                else web.reload()
+            }
         }
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
@@ -438,7 +442,9 @@ class BrowserActivity : Activity() {
         val target = runCatching { MediaEngine.validatedUrl(url) }.getOrNull()
         if (target == null) { status.text = "解析するURLがありません"; return }
         startActivity(Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            // Keep BrowserActivity on the back stack so Back from the analyzer
+            // returns to the playing/video-detection page instead of exiting.
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("sourceUrl", target)
             if (!referer.isNullOrBlank()) putExtra("sourceReferer", referer)
             putExtra("sourceUserAgent", web.settings.userAgentString)

@@ -63,6 +63,7 @@ assert 'networkHint' in (files / 'BrowserActivity.kt').read_text()
 assert 'R.id.adBlockSwitch' in browser
 assert 'R.id.originalPageButton' in browser
 assert 'goBackSafely()' in browser
+assert 'Intent.FLAG_ACTIVITY_CLEAR_TOP' not in browser, 'The analyzer must keep the browser on the back stack'
 assert 'WebAdBlockRules.shouldBlock' in browser
 assert 'ByteArrayInputStream' in browser
 assert (files / 'WebAdBlockRules.kt').exists()
