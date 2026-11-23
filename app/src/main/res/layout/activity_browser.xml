@@ -13,11 +13,24 @@
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal">
         <Button android:id="@+id/browserBackButton" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="戻る"/>
+            android:layout_height="wrap_content" android:text="←戻る"/>
+        <Button android:id="@+id/originalPageButton" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="元ページ"/>
         <Button android:id="@+id/scanButton" android:layout_width="0dp"
             android:layout_height="wrap_content" android:layout_weight="1" android:text="再生後に検出"/>
         <Button android:id="@+id/pageAnalyzeButton" android:layout_width="0dp"
             android:layout_height="wrap_content" android:layout_weight="1" android:text="ページURLで検索"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:paddingStart="12dp" android:paddingEnd="12dp"
+        android:orientation="horizontal">
+        <Switch android:id="@+id/adBlockSwitch" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:checked="true"
+            android:textColor="#14213D" android:text="広告ブロック：ON"/>
+        <TextView android:layout_width="0dp" android:layout_weight="1"
+            android:layout_height="wrap_content" android:gravity="end"
+            android:textSize="11sp" android:textColor="#64748B"
+            android:text="再生できない場合はOFF"/>
     </LinearLayout>
     <WebView android:id="@+id/browserWebView" android:layout_width="match_parent"
         android:layout_height="0dp" android:layout_weight="1"/>

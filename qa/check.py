@@ -60,4 +60,10 @@ assert 'SystemClock.elapsedRealtime() - savedAt in 0L..12_000L' in (files / 'Bra
 assert '900L' in (files / 'OverlayBubbleService.kt').read_text()
 assert 'com.android.chrome' in (files / 'BravePageUrlService.kt').read_text()
 assert 'networkHint' in (files / 'BrowserActivity.kt').read_text()
+assert 'R.id.adBlockSwitch' in browser
+assert 'R.id.originalPageButton' in browser
+assert 'goBackSafely()' in browser
+assert 'WebAdBlockRules.shouldBlock' in browser
+assert 'ByteArrayInputStream' in browser
+assert (files / 'WebAdBlockRules.kt').exists()
 print('Main features and v0.8 detection, ease-of-use and ad guards present')

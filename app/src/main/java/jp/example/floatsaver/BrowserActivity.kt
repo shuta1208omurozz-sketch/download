@@ -7,9 +7,11 @@ import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.Message
 import android.os.SystemClock
 import android.view.View
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -17,8 +19,11 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.Switch
 import android.widget.TextView
 import org.json.JSONArray
+import java.io.ByteArrayInputStream
+import android.net.Uri
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Observes the in-app WebView only. It does not read other apps' traffic. */
@@ -44,6 +49,63 @@ class BrowserActivity : Activity() {
     private val pageGeneration = AtomicInteger(0)
     private var scanEnabled = false
     private var renderPending = false
+    @Volatile private var adBlockingEnabled = true
+    private val adPrefs by lazy { getSharedPreferences("browser_ad_block", MODE_PRIVATE) }
+    private var userRequestedPage = ""
+    private var restoringPage = false
+
+    private fun isBlockedUrl(raw: String?): Boolean =
+        adBlockingEnabled && !raw.isNullOrBlank() && WebAdBlockRules.shouldBlock(raw)
+
+    private fun updateAdBlockingUi(switch: Switch) {
+        switch.text = if (adBlockingEnabled) "広告ブロック：ON" else "広告ブロック：OFF"
+    }
+
+    /**
+     * Do not finish the entire activity just because an ad redirected with
+     * replaceState/location.replace, which can leave no WebView back history.
+     */
+    private fun goBackSafely() {
+        val root = userRequestedPage
+        val now = web.url.orEmpty()
+        val history = web.copyBackForwardList()
+        if (web.canGoBack()) {
+            val rootHost = DetectionRules.safeHost(root)
+            val nowHost = DetectionRules.safeHost(now)
+            if (rootHost.isNotBlank() && nowHost.isNotBlank() &&
+                !nowHost.equals(rootHost, ignoreCase = true)) {
+                for (i in history.currentIndex - 1 downTo 0) {
+                    val itemUrl = history.getItemAtIndex(i)?.url.orEmpty()
+                    if (DetectionRules.safeHost(itemUrl).equals(rootHost, true) &&
+                        !WebAdBlockRules.shouldBlock(itemUrl)) {
+                        web.goBackOrForward(i - history.currentIndex)
+                        status.text = "元の動画ページに戻りました。"
+                        return
+                    }
+                }
+                if (root.startsWith("http") && root.substringBefore('#') != now.substringBefore('#')) {
+                    restoreOriginalPage()
+                    return
+                }
+            }
+            web.goBack()
+            return
+        }
+        if (root.startsWith("http") && root.substringBefore('#') != now.substringBefore('#')) {
+            restoreOriginalPage()
+        } else finish()
+    }
+
+    private fun restoreOriginalPage() {
+        if (userRequestedPage.isBlank() || restoringPage) return
+        restoringPage = true
+        val original = userRequestedPage
+        web.stopLoading()
+        web.loadUrl(original)
+        address.setText(original)
+        status.text = "広告ページから元の動画ページに戻りました。"
+        handler.postDelayed({ restoringPage = false }, 1000L)
+    }
 
     // Polling is bounded to a visible activity and does not require a JS bridge.
     private val scanLoop = object : Runnable {
@@ -77,17 +139,47 @@ class BrowserActivity : Activity() {
         status = findViewById(R.id.detectStatus)
         results = findViewById(R.id.detectedResults)
         web = findViewById(R.id.browserWebView)
+        adBlockingEnabled = adPrefs.getBoolean("enabled", true)
+        val adSwitch = findViewById<Switch>(R.id.adBlockSwitch)
+        adSwitch.isChecked = adBlockingEnabled
+        updateAdBlockingUi(adSwitch)
+        adSwitch.setOnCheckedChangeListener { _, checked ->
+            adBlockingEnabled = checked
+            adPrefs.edit().putBoolean("enabled", checked).apply()
+            updateAdBlockingUi(adSwitch)
+            web.settings.setSupportMultipleWindows(checked)
+            status.text = if (checked)
+                "広告ブロックをONにしました。動画が再生できない場合はOFFにしてください。"
+            else "広告ブロックをOFFにしました。広告ページが開いても「戻る」で元ページへ戻れます。"
+            web.url?.takeIf { it.startsWith("http") }?.let { web.reload() }
+        }
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.settings.allowFileAccess = false
         web.settings.allowContentAccess = false
         web.settings.javaScriptCanOpenWindowsAutomatically = false
-        web.settings.setSupportMultipleWindows(false)
+        web.settings.setSupportMultipleWindows(adBlockingEnabled)
         web.settings.mediaPlaybackRequiresUserGesture = true
-        web.webChromeClient = WebChromeClient()
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onCreateWindow(
+                view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?
+            ): Boolean {
+                // With blocking enabled, don't allow popup windows to steal focus.
+                // Turning blocking OFF restores the previous single-window behavior.
+                return false
+            }
+        }
         web.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                if (isBlockedUrl(url)) {
+                    view?.stopLoading()
+                    if (userRequestedPage.isNotBlank() &&
+                        url?.substringBefore('#') != userRequestedPage.substringBefore('#')) {
+                        restoreOriginalPage()
+                    } else status.text = "広告ページをブロックしました。必要なら広告ブロックをOFFにしてください。"
+                    return
+                }
                 currentPage = url.orEmpty()
                 loadSerial++
                 pageGeneration.incrementAndGet()
@@ -110,6 +202,12 @@ class BrowserActivity : Activity() {
 
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                 val url = request?.url?.toString() ?: return null
+                if (isBlockedUrl(url)) {
+                    // WebView calls this from a worker thread. No UI calls here.
+                    return WebResourceResponse(
+                        "text/plain", "UTF-8", ByteArrayInputStream(ByteArray(0))
+                    )
+                }
                 val accept = request.requestHeaders.entries.firstOrNull {
                     it.key.equals("Accept", ignoreCase = true)
                 }?.value
@@ -128,7 +226,12 @@ class BrowserActivity : Activity() {
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val scheme = request?.url?.scheme?.lowercase()
-                return scheme != "https" && scheme != "http"
+                if (scheme != "https" && scheme != "http") return true
+                if (request.isForMainFrame && isBlockedUrl(request.url.toString())) {
+                    status.post { status.text = "広告ページへの移動をブロックしました。" }
+                    return true
+                }
+                return false
             }
         }
         web.setDownloadListener { url, _, _, mime, _ ->
@@ -148,7 +251,11 @@ class BrowserActivity : Activity() {
             openAnalyzer(web.url.orEmpty(), null)
         }
         findViewById<Button>(R.id.browserBackButton).setOnClickListener {
-            if (web.canGoBack()) web.goBack() else finish()
+            goBackSafely()
+        }
+        findViewById<Button>(R.id.originalPageButton).setOnClickListener {
+            if (userRequestedPage.isNotBlank()) restoreOriginalPage()
+            else status.text = "元ページがまだ指定されていません。"
         }
         intent.getStringExtra(KEY_PAGE)?.takeIf { it.isNotBlank() }?.let {
             address.setText(it)
@@ -163,6 +270,8 @@ class BrowserActivity : Activity() {
         val url = if (raw.contains("://")) raw else "https://$raw"
         val valid = runCatching { MediaEngine.validatedUrl(url) }.getOrNull()
         if (valid == null) { status.text = "URLを確認してください（http/httpsのみ）"; return }
+        userRequestedPage = valid
+        restoringPage = false
         web.loadUrl(valid)
     }
 
@@ -304,7 +413,10 @@ class BrowserActivity : Activity() {
                             .setTitle("埋め込みプレイヤーを開く")
                             .setMessage("動画そのものではなく埋め込みページです。開いた先で本編を再生し、再検出してください。広告ページの可能性もあります。")
                             .setNegativeButton("戻る", null)
-                            .setPositiveButton("開く") { _, _ -> web.loadUrl(item.url) }
+                            .setPositiveButton("開く") { _, _ ->
+                                // Keep the originally requested video page for the back button.
+                                web.loadUrl(item.url)
+                            }
                             .show()
                     } else if (state == AdClassification.Verdict.AD_SUSPECT) {
                         AlertDialog.Builder(this@BrowserActivity)
@@ -349,7 +461,7 @@ class BrowserActivity : Activity() {
     }
 
     override fun onBackPressed() {
-        if (web.canGoBack()) web.goBack() else super.onBackPressed()
+        goBackSafely()
     }
 
     override fun onDestroy() {
