@@ -121,7 +121,7 @@ class OverlayBubbleService : Service() {
                             startActivity(Intent(this, MainActivity::class.java).apply {
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
                                 if (BravePageUrlService.isEnabled(this@OverlayBubbleService)) {
-                                    (if (BravePageUrlService.isEnabled(this)) BravePageUrlService.latestUrl() else null)?.let { putExtra("sourceUrl", it) }
+                                    BravePageUrlService.latestUrl()?.let { putExtra("sourceUrl", it) }
                                         ?: putExtra("captureRequested", true)
                                 } else putExtra("captureRequested", true)
                             })
