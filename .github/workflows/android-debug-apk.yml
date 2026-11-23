@@ -93,13 +93,15 @@ jobs:
           from pathlib import Path
           import os
 
-          apk = Path("app/build/outputs/apk/debug/app-arm64-debug.apk")
-          if not apk.is_file() or apk.stat().st_size == 0:
-              raise SystemExit("Missing compiled APK")
+          folder = Path("app/build/outputs/apk/debug")
+          candidates = [p for p in folder.rglob("*.apk") if p.is_file() and p.stat().st_size > 0]
+          if len(candidates) != 1:
+              raise SystemExit(f"Expected one compiled APK, found: {[(str(p), p.stat().st_size) for p in candidates]}")
+          apk = candidates[0]
           new_name = f"FloatSaver-v{os.environ['APP_VERSION']}-build{os.environ['GITHUB_RUN_NUMBER']}-arm64-debug.apk"
-          target = apk.with_name(new_name)
+          target = folder / new_name
           apk.rename(target)
-          print(f"Downloadable APK: {target}")
+          print(f"Downloadable APK: {target} ({target.stat().st_size / 1e6:.1f} MB)")
           PY
 
       - name: Upload versioned APK
