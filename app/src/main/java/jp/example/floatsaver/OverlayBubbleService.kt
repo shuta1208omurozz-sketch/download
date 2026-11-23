@@ -67,10 +67,10 @@ class OverlayBubbleService : Service() {
         if (bubble != null) return
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         manager = wm
-        val size = dp(56)
+        val size = dp(40)
         val view = TextView(this).apply {
             text = "↓"
-            textSize = 28f
+            textSize = 21f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             elevation = dp(10).toFloat()
@@ -109,7 +109,16 @@ class OverlayBubbleService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     if (distance < dp(14)) {
-                        if (panel == null) showPanel() else closePanel()
+                        // A normal translucent Activity is automatically removed from
+                        // the screen when Recents/Home takes focus. The old TYPE_APPLICATION_OVERLAY
+                        // panel obstructed the entire task switcher.
+                        runCatching {
+                            startActivity(Intent(this, MainActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                BravePageUrlService.latestUrl()?.let { putExtra("sourceUrl", it) }
+                                    ?: putExtra("autoPaste", true)
+                            })
+                        }.onFailure { showPanel() }
                     }
                     true
                 }
@@ -245,27 +254,19 @@ class OverlayBubbleService : Service() {
         firstRow.addView(analyze, LinearLayout.LayoutParams(0, dp(48), 1f))
         root.addView(firstRow, root.indexOfChild(status))
         val getBraveUrl = Button(this).apply {
-            text = "BraveのURLを取得して調べる"
+            text = "BraveのURL / コピーを取得"
             isAllCaps = false
             setOnClickListener {
-                val url = BravePageUrlService.latestUrl()
-                when {
-                    !BravePageUrlService.isEnabled(this@OverlayBubbleService) -> {
-                        status.text = "ユーザー補助でFloatSaverのURL取得を許可してください。"
-                        runCatching {
-                            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            })
-                        }.onFailure {
-                            status.text = "スマホの設定 → ユーザー補助 → FloatSaverを有効にしてください。"
-                        }
-                    }
-                    url != null -> {
-                        input.setText(url)
-                        analyze.performClick() // one tap: capture + start analysis
-                    }
-                    else -> status.text =
-                        "Braveで動画ページを開いてから再度お試しください。アドレス欄にURLが表示されない場合は、BraveでURL欄をタップしてください。"
+                val url = BravePageUrlService.latestUrl() ?: runCatching {
+                    val cb = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    findHttpUrl(cb.primaryClip?.getItemAt(0)
+                        ?.coerceToText(this@OverlayBubbleService)?.toString().orEmpty())
+                }.getOrNull()
+                if (url != null) {
+                    input.setText(url)
+                    analyze.performClick()
+                } else {
+                    status.text = "Braveで「共有 → FloatSaver」またはURLをコピーして貼り付けてください。自動取得には任意のユーザー補助許可が必要です。"
                 }
             }
         }
@@ -423,12 +424,22 @@ class OverlayBubbleService : Service() {
         }
         // Keep the stop control above the URL entry even on short mobile screens.
         root.addView(stopFloating, 1, LinearLayout.LayoutParams(-1, dp(52)))
-        val scroll = ScrollView(this).apply { addView(root) }
+        val scroll = ScrollView(this).apply {
+            addView(root)
+            // Backup overlay only: touching anywhere outside dismisses it.
+            setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_OUTSIDE) {
+                    closePanel()
+                    true
+                } else false
+            }
+        }
         val params = WindowManager.LayoutParams(
-            resources.displayMetrics.widthPixels - dp(24),
-            (resources.displayMetrics.heightPixels * 0.75f).toInt(),
+            (resources.displayMetrics.widthPixels - dp(56)).coerceAtMost(dp(360)),
+            (resources.displayMetrics.heightPixels * 0.45f).toInt().coerceAtMost(dp(370)),
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT).apply {
             gravity = Gravity.CENTER
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE

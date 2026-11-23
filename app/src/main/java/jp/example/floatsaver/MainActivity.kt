@@ -20,6 +20,9 @@ import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.FrameLayout
+import android.widget.ScrollView
+import kotlin.math.min
 import java.util.Locale
 
 class MainActivity : Activity() {
@@ -44,9 +47,19 @@ class MainActivity : Activity() {
     private var analyzeGeneration = 0
     private var pendingAnalysisUrl = ""
 
+    private fun dp(value: Int): Int = (resources.displayMetrics.density * value).toInt()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        val backdrop = findViewById<FrameLayout>(R.id.panelBackdrop)
+        val compactCard = findViewById<ScrollView>(R.id.panelCard)
+        compactCard.layoutParams = (compactCard.layoutParams as FrameLayout.LayoutParams).apply {
+            width = min(resources.displayMetrics.widthPixels - dp(32), dp(370))
+            height = min((resources.displayMetrics.heightPixels * 0.52f).toInt(), dp(420))
+        }
+        backdrop.setOnClickListener { finish() }
+        compactCard.setOnClickListener { /* Keep taps inside the panel. */ }
         urlInput = findViewById(R.id.urlInput)
         analyzeButton = findViewById(R.id.analyzeButton)
         downloadButton = findViewById(R.id.downloadButton)
@@ -80,7 +93,13 @@ class MainActivity : Activity() {
             override fun afterTextChanged(s: Editable?) = Unit
         })
         findViewById<Button>(R.id.closeButton).setOnClickListener { finish() }
-        findViewById<Button>(R.id.pasteButton).setOnClickListener { pasteFromClipboard() }
+        findViewById<Button>(R.id.stopFloatingButton).setOnClickListener {
+            stopService(Intent(this, OverlayBubbleService::class.java))
+            Toast.makeText(this, "フローティングを終了しました", Toast.LENGTH_SHORT).show()
+            finish()
+        }
+        findViewById<Button>(R.id.braveUrlButton).setOnClickListener { getBraveUrlWithoutRedirect() }
+        findViewById<Button>(R.id.pasteButton).setOnClickListener { pasteFromClipboard(analyzeImmediately = true) }
         findViewById<Button>(R.id.browserButton).setOnClickListener {
             startActivity(Intent(this, BrowserActivity::class.java).apply {
                 urlInput.text.toString().takeIf { it.startsWith("https://") || it.startsWith("http://") }
@@ -145,7 +164,29 @@ class MainActivity : Activity() {
             userAgent = incoming?.getStringExtra("sourceUserAgent")
             analyze()
         } else if (incoming?.getBooleanExtra("autoPaste", false) == true) {
-            pasteFromClipboard(analyzeImmediately = true)
+            // Don't redirect users to Accessibility Settings. Copy/Share work without it.
+            getBraveUrlWithoutRedirect()
+        }
+    }
+
+    private fun getBraveUrlWithoutRedirect() {
+        val fromBrave = BravePageUrlService.latestUrl()
+        if (fromBrave != null) {
+            urlInput.setText(fromBrave)
+            analyze()
+            return
+        }
+        // The user explicitly pressed this button. Clipboard access is requested only
+        // from the foreground Activity, not from an inaccessible background service.
+        val clip = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        val copied = runCatching {
+            findHttpUrl(clip.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty())
+        }.getOrNull()
+        if (copied != null) {
+            urlInput.setText(copied)
+            analyze()
+        } else {
+            statusText.text = "Braveで「共有 → FloatSaver」を選ぶか、URLをコピーしてから押してください。ユーザー補助は自動取得を希望する場合だけ設定します。"
         }
     }
 
@@ -157,7 +198,7 @@ class MainActivity : Activity() {
         }.getOrDefault("")
         val url = findHttpUrl(raw)
         if (url == null) {
-            statusText.text = "URLが見つかりません。Braveの共有→FloatSaverも利用できます。"
+            statusText.text = "URLがありません。Braveで「共有 → FloatSaver」を選ぶか、URLをコピーしてください。"
         } else {
             referer = null
             userAgent = null
