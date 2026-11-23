@@ -170,7 +170,7 @@ class MainActivity : Activity() {
             analyze()
         } else if (incoming?.getBooleanExtra("autoPaste", false) == true) {
             // Don't redirect users to Accessibility Settings. Copy/Share work without it.
-            getBraveUrlWithoutRedirect()
+            getBrowserUrlWithoutRedirect()
         }
     }
 
