@@ -28,7 +28,7 @@
         <TextView android:layout_width="0dp" android:layout_weight="1"
             android:layout_height="wrap_content" android:gravity="end"
             android:textSize="11sp" android:textColor="#64748B"
-            android:text="再生不可ならOFF"/>
+            android:text="外部移動が必要ならOFF"/>
         <Button android:id="@+id/originalPageButton" android:layout_width="wrap_content"
             android:layout_height="40dp" android:text="元ページ"/>
     </LinearLayout>

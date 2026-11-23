@@ -73,6 +73,10 @@ assert 'R.id.originalPageButton' in browser
 assert 'goBackSafely()' in browser
 assert 'Intent.FLAG_ACTIVITY_CLEAR_TOP' not in browser, 'The analyzer must keep the browser on the back stack'
 assert 'WebAdBlockRules.shouldBlock' in browser
+assert 'BrowserNavigationGuard.shouldBlock' in browser
+assert 'private fun showQuickSave(candidate: Candidate)' in browser
+assert 'DownloadService.start(this, videoUrl' in browser
+assert (files / 'BrowserNavigationGuard.kt').exists()
 assert 'ByteArrayInputStream' in browser
 assert (files / 'WebAdBlockRules.kt').exists()
 print('Main features and v0.8 detection, ease-of-use and ad guards present')

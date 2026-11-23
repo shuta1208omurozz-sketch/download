@@ -17,6 +17,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
+import android.widget.Toast
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Switch
@@ -53,6 +54,9 @@ class BrowserActivity : Activity() {
     private val adPrefs by lazy { getSharedPreferences("browser_ad_block", MODE_PRIVATE) }
     private var userRequestedPage = ""
     private var restoringPage = false
+    private var approvedPlayerUrl: String? = null
+    private var quickSaveBusy = false
+    private var lastRootBackAt = 0L
 
     private fun isBlockedUrl(raw: String?): Boolean =
         adBlockingEnabled && !raw.isNullOrBlank() && WebAdBlockRules.shouldBlock(raw)
@@ -93,6 +97,15 @@ class BrowserActivity : Activity() {
         }
         if (root.startsWith("http") && root.substringBefore('#') != now.substringBefore('#')) {
             restoreOriginalPage()
+        } else if (root.startsWith("http")) {
+            // Avoid leaving the browser when a page opened a popup or replaced history.
+            val nowMillis = SystemClock.elapsedRealtime()
+            if (nowMillis - lastRootBackAt < 1800L) {
+                finish()
+            } else {
+                lastRootBackAt = nowMillis
+                status.text = "元のページです。ブラウザを閉じる場合はもう一度「戻る」を押してください。"
+            }
         } else finish()
     }
 
@@ -100,6 +113,7 @@ class BrowserActivity : Activity() {
         if (userRequestedPage.isBlank() || restoringPage) return
         restoringPage = true
         val original = userRequestedPage
+        approvedPlayerUrl = null
         web.stopLoading()
         web.loadUrl(original)
         address.setText(original)
@@ -149,8 +163,8 @@ class BrowserActivity : Activity() {
             updateAdBlockingUi(adSwitch)
             web.settings.setSupportMultipleWindows(checked)
             status.text = if (checked)
-                "広告ブロックをONにしました。動画が再生できない場合はOFFにしてください。"
-            else "広告ブロックをOFFにしました。広告ページが開いても「戻る」で元ページへ戻れます。"
+                "広告通信と別サイトへの不要な移動を抑制します。再生不可ならOFFにしてください。"
+            else "広告ブロックを解除しました。別サイトのプレイヤーに移動する場合はOFFでお試しください。"
             web.url?.takeIf { it.startsWith("http") }?.let { current ->
                 if (checked && isBlockedUrl(current) && userRequestedPage.isNotBlank())
                     restoreOriginalPage()
@@ -231,9 +245,22 @@ class BrowserActivity : Activity() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val scheme = request?.url?.scheme?.lowercase()
                 if (scheme != "https" && scheme != "http") return true
-                if (request.isForMainFrame && isBlockedUrl(request.url.toString())) {
-                    status.post { status.text = "広告ページへの移動をブロックしました。" }
-                    return true
+                if (request.isForMainFrame) {
+                    val requested = request.url.toString()
+                    if (isBlockedUrl(requested)) {
+                        status.post { status.text = "広告ページへの移動をブロックしました。" }
+                        return true
+                    }
+                    // Ads often redirect the entire tab to a new site after a play click.
+                    // Keep the chosen video page open. Switch blocking OFF if the site's
+                    // legitimate player requires a top-level redirect.
+                    if (BrowserNavigationGuard.shouldBlock(
+                            userRequestedPage, requested, adBlockingEnabled, approvedPlayerUrl)) {
+                        status.post {
+                            status.text = "別サイトへの移動を止めました。動画が開けない場合は広告ブロックをOFFにしてください。"
+                        }
+                        return true
+                    }
                 }
                 return false
             }
@@ -275,6 +302,8 @@ class BrowserActivity : Activity() {
         val valid = runCatching { MediaEngine.validatedUrl(url) }.getOrNull()
         if (valid == null) { status.text = "URLを確認してください（http/httpsのみ）"; return }
         userRequestedPage = valid
+        approvedPlayerUrl = null
+        lastRootBackAt = 0L
         restoringPage = false
         web.loadUrl(valid)
     }
@@ -394,10 +423,10 @@ class BrowserActivity : Activity() {
         val adCount = candidates.count { verdict(it) == AdClassification.Verdict.AD_SUSPECT }
         val mainCount = candidates.count { verdict(it) == AdClassification.Verdict.MAIN_LIKELY }
         status.text = when {
-            candidates.isEmpty() -> "まだ候補がありません。広告が終わって本編を再生し、「再生後に検出」を押してください。"
+            candidates.isEmpty() -> "まだ動画が見つかりません。本編を再生してから「再生後に検出」を押してください。"
             mainCount > 0 -> "本編候補 ${mainCount}件（未確認）／広告の疑い ${adCount}件。保存前に内容を確認してください。"
             adCount > 0 -> "候補 ${candidates.size}件（広告の疑い ${adCount}件）。広告が終わって本編が始まったら再検出してください。"
-            else -> "候補 ${candidates.size}件。下の候補をタップすると画質選択へ進みます。広告と本編は未確定です。"
+            else -> "候補 ${candidates.size}件。候補をタップして画質を選び、そのまま保存できます。広告と本編は未確定です。"
         }
         candidates.take(35).forEachIndexed { index, item ->
             val uri = android.net.Uri.parse(item.url)
@@ -422,26 +451,102 @@ class BrowserActivity : Activity() {
                             .setMessage("動画そのものではなく埋め込みページです。開いた先で本編を再生し、再検出してください。広告ページの可能性もあります。")
                             .setNegativeButton("戻る", null)
                             .setPositiveButton("開く") { _, _ ->
-                                // Keep the originally requested video page for the back button.
+                                // Explicit embed navigation only; subsequent ad redirects
+                                // to a different host remain blocked.
+                                approvedPlayerUrl = item.url
                                 web.loadUrl(item.url)
                             }
                             .show()
                     } else if (state == AdClassification.Verdict.AD_SUSPECT) {
                         AlertDialog.Builder(this@BrowserActivity)
                             .setTitle("広告の可能性があります")
-                            .setMessage("この候補は広告の可能性があります。本編の再生が始まってから再検出することをおすすめします。\n\nそれでも解析しますか？")
+                            .setMessage("この候補は広告の可能性があります。本編の再生後に検出し直すことをおすすめします。\n\nそれでも保存候補を調べますか？")
                             .setNegativeButton("戻る", null)
-                            .setPositiveButton("解析する") { _, _ ->
-                                openAnalyzer(item.url, currentPage, item.kind == "動画")
-                            }
+                            .setPositiveButton("調べる") { _, _ -> showQuickSave(item) }
                             .show()
-                    } else openAnalyzer(item.url, currentPage, item.kind == "動画")
+                    } else showQuickSave(item)
                 }
             })
         }
         if (candidates.size > 35) results.addView(TextView(this).apply {
             text = "候補が多いため優先度の高い35件のみ表示します。"
         })
+    }
+
+    /**
+     * Keep the playback page in place while checking qualities and saving.
+     * The previous flow opened MainActivity for every candidate, so returning
+     * through an advertisement required several back steps.
+     */
+    private fun showQuickSave(candidate: Candidate) {
+        if (quickSaveBusy) {
+            status.text = "動画を確認中です。候補が表示されるまでお待ちください。"
+            return
+        }
+        val videoUrl = runCatching { MediaEngine.validatedUrl(candidate.url) }.getOrNull()
+            ?: run { status.text = "動画のURLが無効です"; return }
+        val pageUrl = currentPage.takeIf { it.startsWith("http") }
+        val userAgent = web.settings.userAgentString
+        val videoHint = candidate.kind == "動画"
+        quickSaveBusy = true
+        var cancelled = false
+        val progress = AlertDialog.Builder(this)
+            .setTitle("動画の画質を調べています")
+            .setMessage("元の再生ページはそのまま残ります。")
+            .setNegativeButton("キャンセル") { _, _ -> cancelled = true }
+            .create()
+        progress.setOnCancelListener { cancelled = true }
+        progress.show()
+        Thread {
+            val outcome = runCatching {
+                MediaEngine.analyze(applicationContext, videoUrl, pageUrl, userAgent, videoHint)
+            }
+            runOnUiThread {
+                quickSaveBusy = false
+                progress.dismiss()
+                if (cancelled || isFinishing || isDestroyed) return@runOnUiThread
+                outcome.onSuccess { details ->
+                    val choices = details.qualities.take(14)
+                    if (choices.isEmpty()) {
+                        status.text = "保存できる画質が見つかりません。"
+                        return@onSuccess
+                    }
+                    val names = choices.map { it.toString() }.toTypedArray()
+                    AlertDialog.Builder(this)
+                        .setTitle("画質を選んで保存")
+                        .setItems(names) { _, which ->
+                            val chosen = choices[which]
+                            val container = if (details.isGif) MediaEngine.CONTAINER_GIF
+                                else MediaEngine.CONTAINER_ORIGINAL
+                            runCatching {
+                                DownloadService.start(this, videoUrl, chosen.formatSelector,
+                                    details.isGif, container, details.title, pageUrl, userAgent)
+                            }.onSuccess {
+                                Toast.makeText(this,
+                                    "保存を開始しました。再生ページはそのままです。",
+                                    Toast.LENGTH_SHORT).show()
+                            }.onFailure {
+                                status.text = ErrorHints.describe(it)
+                            }
+                        }
+                        .setNeutralButton("詳細設定") { _, _ ->
+                            openAnalyzer(videoUrl, pageUrl, videoHint)
+                        }
+                        .setNegativeButton("キャンセル", null)
+                        .show()
+                }.onFailure {
+                    AlertDialog.Builder(this)
+                        .setTitle("動画を解析できませんでした")
+                        .setMessage(ErrorHints.describe(it) +
+                            "\n\n再生ページを閉じずに別の候補を試せます。")
+                        .setPositiveButton("詳細設定") { _, _ ->
+                            openAnalyzer(videoUrl, pageUrl, videoHint)
+                        }
+                        .setNegativeButton("戻る", null)
+                        .show()
+                }
+            }
+        }.start()
     }
 
     private fun openAnalyzer(url: String, referer: String?, knownVideo: Boolean = false) {
