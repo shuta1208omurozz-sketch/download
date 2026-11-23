@@ -49,6 +49,7 @@ class BrowserActivity : Activity() {
     // shouldInterceptRequest runs off the UI thread: use a thread-safe generation.
     private val pageGeneration = AtomicInteger(0)
     private var scanEnabled = false
+    private var scanInFlight = false
     private var renderPending = false
     @Volatile private var adBlockingEnabled = true
     private val adPrefs by lazy { getSharedPreferences("browser_ad_block", MODE_PRIVATE) }
@@ -138,7 +139,13 @@ class BrowserActivity : Activity() {
                 scanDom()
                 scheduleRepaint() // Refresh stale playing labels even when URLs stay unchanged.
             }
-            handler.postDelayed(this, 4000L)
+            // Before a video is found, check more frequently. While playing,
+            // refresh fast enough for the ad-vs-main playback samples.
+            val recentlyPlaying = found.values.any {
+                it.lastPlayingAt > 0L &&
+                    SystemClock.elapsedRealtime() - it.lastPlayingAt < 4500L
+            }
+            handler.postDelayed(this, BrowserScanSchedule.delayMillis(found.size, recentlyPlaying))
         }
     }
     private val repaint = Runnable {
@@ -201,8 +208,14 @@ class BrowserActivity : Activity() {
                 currentPage = url.orEmpty()
                 loadSerial++
                 pageGeneration.incrementAndGet()
+                scanInFlight = false
                 found.clear()
                 scheduleRepaint()
+                val started = loadSerial
+                // Video elements often appear before onPageFinished.
+                handler.postDelayed({
+                    if (scanEnabled && !isFinishing && started == loadSerial) scanDom()
+                }, 500L)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -215,7 +228,7 @@ class BrowserActivity : Activity() {
                 val serial = loadSerial
                 handler.postDelayed({
                     if (!isFinishing && serial == loadSerial) scanDom()
-                }, 1100L)
+                }, 650L)
             }
 
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
@@ -312,9 +325,12 @@ class BrowserActivity : Activity() {
         if (!::web.isInitialized || isFinishing) return
         // Only video/source and video metadata can include extensionless URLs.
         // GIF images and regular links require positive URL format hints.
+        if (scanInFlight) return
+        scanInFlight = true
         val script = BrowserMediaScanner.script
         val serial = loadSerial
         web.evaluateJavascript(script) { raw ->
+            scanInFlight = false
             if (isFinishing || isDestroyed || serial != loadSerial) return@evaluateJavascript
             runCatching {
                 val values = JSONArray(raw)
@@ -568,11 +584,12 @@ class BrowserActivity : Activity() {
         if (::web.isInitialized) web.onResume()
         scanEnabled = true
         handler.removeCallbacks(scanLoop)
-        handler.postDelayed(scanLoop, 1200L)
+        handler.postDelayed(scanLoop, 300L)
     }
 
     override fun onPause() {
         scanEnabled = false
+        scanInFlight = false
         handler.removeCallbacks(scanLoop)
         if (::web.isInitialized) web.onPause()
         super.onPause()

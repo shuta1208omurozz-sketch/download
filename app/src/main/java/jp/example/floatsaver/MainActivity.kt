@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.MotionEvent
 import android.provider.Settings
 import android.view.View
 import android.text.Editable
@@ -23,6 +24,7 @@ import android.widget.Toast
 import android.widget.FrameLayout
 import android.widget.ScrollView
 import kotlin.math.min
+import kotlin.math.max
 import java.util.Locale
 
 class MainActivity : Activity() {
@@ -50,16 +52,78 @@ class MainActivity : Activity() {
 
     private fun dp(value: Int): Int = (resources.displayMetrics.density * value).toInt()
 
+    private fun setupResizablePanel(shell: FrameLayout) {
+        val preferences = getSharedPreferences("resizable_window", MODE_PRIVATE)
+        val maxWidth = (resources.displayMetrics.widthPixels - dp(24)).coerceAtLeast(dp(200))
+        val maxHeight = (resources.displayMetrics.heightPixels - dp(28)).coerceAtLeast(dp(160))
+        val minWidth = min(dp(268), maxWidth)
+        val minHeight = min(dp(180), maxHeight)
+        val defaultWidth = min(maxWidth, dp(370))
+        val defaultHeight = min(maxHeight, min(
+            (resources.displayMetrics.heightPixels * 0.52f).toInt(), dp(420)))
+        shell.layoutParams = (shell.layoutParams as FrameLayout.LayoutParams).apply {
+            width = preferences.getInt("widthDp", 0)
+                .takeIf { it > 0 }?.let { dp(it) }
+                ?.coerceIn(minWidth, maxWidth) ?: defaultWidth
+            height = preferences.getInt("heightDp", 0)
+                .takeIf { it > 0 }?.let { dp(it) }
+                ?.coerceIn(minHeight, maxHeight) ?: defaultHeight.coerceAtLeast(minHeight)
+        }
+
+        @Suppress("ClickableViewAccessibility")
+        fun connectResizeHandle(id: Int, horizontal: Boolean, vertical: Boolean) {
+            val handle = findViewById<View>(id)
+            var beginX = 0f
+            var beginY = 0f
+            var startWidth = 0
+            var startHeight = 0
+            handle.setOnTouchListener { _, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        beginX = event.rawX
+                        beginY = event.rawY
+                        startWidth = shell.width
+                        startHeight = shell.height
+                        shell.parent.requestDisallowInterceptTouchEvent(true)
+                        true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val params = shell.layoutParams as FrameLayout.LayoutParams
+                        if (horizontal) params.width = (startWidth +
+                            (event.rawX - beginX).toInt()).coerceIn(minWidth, maxWidth)
+                        if (vertical) params.height = (startHeight +
+                            (event.rawY - beginY).toInt()).coerceIn(minHeight, maxHeight)
+                        shell.layoutParams = params
+                        true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        val density = resources.displayMetrics.density
+                        preferences.edit()
+                            .putInt("widthDp", (shell.width / density).toInt())
+                            .putInt("heightDp", (shell.height / density).toInt())
+                            .apply()
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
+        // The right, bottom and bottom-right handles resize on horizontal,
+        // vertical and diagonal drag, respectively. The size survives reopening.
+        connectResizeHandle(R.id.resizeRightHandle, true, false)
+        connectResizeHandle(R.id.resizeBottomHandle, false, true)
+        connectResizeHandle(R.id.resizeCornerHandle, true, true)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         val backdrop = findViewById<FrameLayout>(R.id.panelBackdrop)
         val compactCard = findViewById<ScrollView>(R.id.panelCard)
-        compactCard.layoutParams = (compactCard.layoutParams as FrameLayout.LayoutParams).apply {
-            width = min(resources.displayMetrics.widthPixels - dp(32), dp(370))
-            height = min((resources.displayMetrics.heightPixels * 0.52f).toInt(), dp(420))
-        }
+        val shell = findViewById<FrameLayout>(R.id.panelShell)
+        setupResizablePanel(shell)
         backdrop.setOnClickListener { finish() }
+        shell.setOnClickListener { /* Taps inside the panel must not close it. */ }
         compactCard.setOnClickListener { /* Keep taps inside the panel. */ }
         urlInput = findViewById(R.id.urlInput)
         analyzeButton = findViewById(R.id.analyzeButton)

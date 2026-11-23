@@ -4,12 +4,16 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#B20C1324">
-    <ScrollView android:id="@+id/panelCard" android:layout_width="match_parent"
+    <FrameLayout android:id="@+id/panelShell" android:layout_width="wrap_content"
         android:layout_height="wrap_content" android:layout_gravity="center"
         android:layout_margin="12dp" android:background="@drawable/panel_background"
-        android:elevation="10dp" android:fillViewport="false">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:padding="18dp" android:orientation="vertical">
+        android:elevation="10dp">
+        <ScrollView android:id="@+id/panelCard" android:layout_width="match_parent"
+            android:layout_height="match_parent" android:fillViewport="false">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:paddingStart="18dp" android:paddingTop="18dp"
+                android:paddingEnd="18dp" android:paddingBottom="52dp"
+                android:orientation="vertical">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal" android:gravity="center_vertical">
                 <TextView android:layout_width="0dp" android:layout_height="wrap_content"
@@ -116,6 +120,25 @@
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:layout_marginTop="3dp" android:textSize="12sp" android:textColor="#64748B"
                 android:text="※ 他アプリ内の動画を無断で監視しません。サイトや保護方式により保存できない場合があります。"/>
-        </LinearLayout>
-    </ScrollView>
+            </LinearLayout>
+        </ScrollView>
+        <TextView android:id="@+id/resizeRightHandle"
+            android:layout_width="24dp" android:layout_height="70dp"
+            android:layout_gravity="end|center_vertical"
+            android:gravity="center" android:text="↔" android:textSize="20sp"
+            android:textColor="#2456B8" android:background="#DCE9FF"
+            android:contentDescription="右端をドラッグして横幅を変更"/>
+        <TextView android:id="@+id/resizeBottomHandle"
+            android:layout_width="90dp" android:layout_height="24dp"
+            android:layout_gravity="bottom|center_horizontal"
+            android:gravity="center" android:text="↕" android:textSize="20sp"
+            android:textColor="#2456B8" android:background="#DCE9FF"
+            android:contentDescription="下端をドラッグして高さを変更"/>
+        <TextView android:id="@+id/resizeCornerHandle"
+            android:layout_width="42dp" android:layout_height="42dp"
+            android:layout_gravity="bottom|end"
+            android:gravity="center" android:text="↘" android:textSize="25sp"
+            android:textColor="#2456B8" android:background="#C3D9FF"
+            android:contentDescription="右下角を斜めにドラッグして小窓のサイズを変更"/>
+    </FrameLayout>
 </FrameLayout>
