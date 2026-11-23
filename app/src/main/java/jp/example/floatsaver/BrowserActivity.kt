@@ -268,7 +268,8 @@ class BrowserActivity : Activity() {
                     // Keep the chosen video page open. Switch blocking OFF if the site's
                     // legitimate player requires a top-level redirect.
                     if (BrowserNavigationGuard.shouldBlock(
-                            userRequestedPage, requested, adBlockingEnabled, approvedPlayerUrl)) {
+                            userRequestedPage, requested, adBlockingEnabled,
+                            approvedPlayerUrl, request.hasGesture())) {
                         status.post {
                             status.text = "別サイトへの移動を止めました。動画が開けない場合は広告ブロックをOFFにしてください。"
                         }

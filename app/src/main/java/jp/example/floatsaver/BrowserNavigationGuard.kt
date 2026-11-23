@@ -25,13 +25,19 @@ object BrowserNavigationGuard {
         originalUrl: String,
         destinationUrl: String,
         blockingEnabled: Boolean,
-        approvedPlayerUrl: String? = null
+        approvedPlayerUrl: String? = null,
+        userGesture: Boolean = false
     ): Boolean {
         if (!blockingEnabled) return false
         val original = host(originalUrl) ?: return false
         val destination = host(destinationUrl) ?: return false
         if (sameHost(original, destination)) return false
         val approved = approvedPlayerUrl?.let(::host)
-        return approved == null || !sameHost(approved, destination)
+        if (approved != null && sameHost(approved, destination)) return false
+        // A link intentionally tapped by the user may lead to a legitimate
+        // login or embedded video provider; do not silently block every other host.
+        // Known ad domains still get stopped by the request filter.
+        if (userGesture && !WebAdBlockRules.shouldBlock(destinationUrl)) return false
+        return true
     }
 }

@@ -26,6 +26,18 @@ class BrowserNavigationGuardTest {
             true, "https://player.example/embed/123"))
     }
 
+    @Test fun intentionalNavigationToDifferentHostIsAllowed() {
+        assertFalse(BrowserNavigationGuard.shouldBlock(
+            "https://videos.example/watch", "https://login-provider.example/signin",
+            true, userGesture = true))
+        assertTrue(BrowserNavigationGuard.shouldBlock(
+            "https://videos.example/watch", "https://ads.popads.net/click",
+            true, userGesture = true))
+        assertTrue(BrowserNavigationGuard.shouldBlock(
+            "https://videos.example/watch", "https://ads.example/pop",
+            true, userGesture = false))
+    }
+
     @Test fun doesNotBlockWithoutKnownPage() {
         assertFalse(BrowserNavigationGuard.shouldBlock(
             "", "https://somewhere.example/page", true))
