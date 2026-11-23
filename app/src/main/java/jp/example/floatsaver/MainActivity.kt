@@ -54,20 +54,54 @@ class MainActivity : Activity() {
 
     private fun setupResizablePanel(shell: FrameLayout) {
         val preferences = getSharedPreferences("resizable_window", MODE_PRIVATE)
-        val maxWidth = (resources.displayMetrics.widthPixels - dp(24)).coerceAtLeast(dp(200))
-        val maxHeight = (resources.displayMetrics.heightPixels - dp(28)).coerceAtLeast(dp(160))
-        val minWidth = min(dp(268), maxWidth)
-        val minHeight = min(dp(180), maxHeight)
+        val marginPx = dp(12)
+        val maxWidth = (resources.displayMetrics.widthPixels - dp(24)).coerceAtLeast(dp(1))
+        val maxHeight = (resources.displayMetrics.heightPixels - dp(28)).coerceAtLeast(dp(1))
+        val minWidth = min(dp(220), maxWidth)
+        val minHeight = min(dp(170), maxHeight)
         val defaultWidth = min(maxWidth, dp(370))
-        val defaultHeight = min(maxHeight, min(
-            (resources.displayMetrics.heightPixels * 0.52f).toInt(), dp(420)))
+        val defaultHeight = min(maxHeight, maxOf(
+            (resources.displayMetrics.heightPixels * 0.52f).toInt(), minHeight)
+        ).coerceAtLeast(minHeight)
+        val savedWidth = preferences.getInt("widthDp", 0).takeIf { it > 0 }
+            ?.let { dp(it) }?.coerceIn(minWidth, maxWidth) ?: defaultWidth
+        val savedHeight = preferences.getInt("heightDp", 0).takeIf { it > 0 }
+            ?.let { dp(it) }?.coerceIn(minHeight, maxHeight) ?: defaultHeight
         shell.layoutParams = (shell.layoutParams as FrameLayout.LayoutParams).apply {
-            width = preferences.getInt("widthDp", 0)
-                .takeIf { it > 0 }?.let { dp(it) }
-                ?.coerceIn(minWidth, maxWidth) ?: defaultWidth
-            height = preferences.getInt("heightDp", 0)
-                .takeIf { it > 0 }?.let { dp(it) }
-                ?.coerceIn(minHeight, maxHeight) ?: defaultHeight.coerceAtLeast(minHeight)
+            width = savedWidth
+            height = savedHeight
+        }
+
+        fun saveSize() {
+            val density = resources.displayMetrics.density
+            preferences.edit()
+                .putInt("widthDp", (shell.width / density).toInt().coerceAtLeast(1))
+                .putInt("heightDp", (shell.height / density).toInt().coerceAtLeast(1))
+                .apply()
+        }
+
+        findViewById<Button>(R.id.resetPanelSizeButton).setOnClickListener {
+            shell.layoutParams = (shell.layoutParams as FrameLayout.LayoutParams).apply {
+                width = defaultWidth
+                height = defaultHeight
+            }
+            shell.translationX = 0f
+            shell.translationY = 0f
+            shell.post { saveSize() }
+        }
+
+        // The actual parent can be smaller than displayMetrics because of system
+        // bars or rotation. Make the restored panel reachable inside its parent.
+        shell.post {
+            val parent = shell.parent as? View ?: return@post
+            val usableWidth = (parent.width - 2 * marginPx).coerceAtLeast(1)
+            val usableHeight = (parent.height - 2 * marginPx).coerceAtLeast(1)
+            val params = shell.layoutParams as FrameLayout.LayoutParams
+            if (params.width > usableWidth || params.height > usableHeight) {
+                params.width = params.width.coerceAtMost(usableWidth)
+                params.height = params.height.coerceAtMost(usableHeight)
+                shell.layoutParams = params
+            }
         }
 
         @Suppress("ClickableViewAccessibility")
@@ -75,42 +109,44 @@ class MainActivity : Activity() {
             val handle = findViewById<View>(id)
             var beginX = 0f
             var beginY = 0f
-            var startWidth = 0
-            var startHeight = 0
+            var initial = PanelResizeMath.Geometry(0, 0, 0f, 0f)
             handle.setOnTouchListener { _, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         beginX = event.rawX
                         beginY = event.rawY
-                        startWidth = shell.width
-                        startHeight = shell.height
+                        initial = PanelResizeMath.Geometry(
+                            shell.width, shell.height, shell.translationX, shell.translationY)
                         shell.parent.requestDisallowInterceptTouchEvent(true)
                         true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        val params = shell.layoutParams as FrameLayout.LayoutParams
-                        if (horizontalDirection != 0) params.width = (startWidth +
-                            horizontalDirection * (event.rawX - beginX).toInt())
-                            .coerceIn(minWidth, maxWidth)
-                        if (vertical) params.height = (startHeight +
-                            (event.rawY - beginY).toInt()).coerceIn(minHeight, maxHeight)
-                        shell.layoutParams = params
+                        val parent = shell.parent as? View
+                        val resized = PanelResizeMath.resized(
+                            initial, event.rawX - beginX, event.rawY - beginY,
+                            horizontalDirection, vertical, minWidth, maxWidth,
+                            minHeight, maxHeight,
+                            parent?.width?.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels,
+                            parent?.height?.takeIf { it > 0 } ?: resources.displayMetrics.heightPixels,
+                            marginPx
+                        )
+                        shell.layoutParams = (shell.layoutParams as FrameLayout.LayoutParams).apply {
+                            width = resized.width
+                            height = resized.height
+                        }
+                        shell.translationX = resized.offsetX
+                        shell.translationY = resized.offsetY
                         true
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        val density = resources.displayMetrics.density
-                        preferences.edit()
-                            .putInt("widthDp", (shell.width / density).toInt())
-                            .putInt("heightDp", (shell.height / density).toInt())
-                            .apply()
+                        saveSize()
+                        shell.parent.requestDisallowInterceptTouchEvent(false)
                         true
                     }
                     else -> false
                 }
             }
         }
-        // Dragging the bottom-left corner to the left increases width, while
-        // dragging right decreases it. Bottom and bottom-right are unchanged.
         connectResizeHandle(R.id.resizeRightHandle, 1, false)
         connectResizeHandle(R.id.resizeBottomHandle, 0, true)
         connectResizeHandle(R.id.resizeCornerHandle, 1, true)
