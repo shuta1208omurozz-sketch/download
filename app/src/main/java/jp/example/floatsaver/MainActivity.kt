@@ -387,13 +387,13 @@ class MainActivity : Activity() {
 
     private fun getBrowserUrlWithoutRedirect() {
         if (!BravePageUrlService.isEnabled(this)) {
-            statusText.text = "自動取得は未許可です。ユーザー補助でFloatSaverを有効にするか、ブラウザから「共有 → FloatSaver」を選んでください。"
+            statusText.text = "自動取得は未許可です。URLを共有するかコピーしてください。"
             updateUrlCaptureStatus()
             return
         }
         val freshUrl = BravePageUrlService.latestUrl()
         if (freshUrl == null) {
-            statusText.text = "現在のブラウザURLが検出されません。URL欄を表示して戻るか、ブラウザから「共有 → FloatSaver」を選んでください。以前コピーしたURLは自動では使いません。"
+            statusText.text = "URLが見つかりません。ブラウザから共有するかコピーしてください。"
             return
         }
         urlInput.setText(freshUrl)
@@ -420,7 +420,7 @@ class MainActivity : Activity() {
         if (url == null) {
             statusText.text = "URLを取得できませんでした。ブラウザで「共有 → FloatSaver」を選ぶか、URLをコピーしてください。"
         } else if (url == urlInput.text.toString().trim()) {
-            statusText.text = "クリップボードは前回と同じURLです。別のページをコピーするか、「動画を調べる」で再解析できます。"
+            statusText.text = "同じURLです。必要なら「動画を調べる」を押してください。"
         } else {
             referer = null
             userAgent = null
@@ -517,7 +517,9 @@ class MainActivity : Activity() {
                     durationText.text = "再生時間: ー"
                     refreshChoices()
                     statusText.text = ErrorHints.describe(error)
-                    findViewById<Button>(R.id.fallbackBrowserButton).visibility = View.VISIBLE
+                    // The main “再生して動画を探す” action is already visible.
+                    // Never duplicate the same button after a failed extraction.
+                    findViewById<Button>(R.id.fallbackBrowserButton).visibility = View.GONE
                 }
             }
         }.start()
