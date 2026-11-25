@@ -1,49 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical" android:background="#FFFFFF"
-    android:layout_width="match_parent" android:layout_height="match_parent">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="horizontal">
-        <EditText android:id="@+id/addressInput" android:layout_width="0dp"
-            android:layout_height="wrap_content" android:layout_weight="1"
-            android:inputType="textUri" android:singleLine="true" android:hint="https://..."/>
-        <Button android:id="@+id/goButton" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="開く"/>
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="horizontal">
-        <Button android:id="@+id/browserBackButton" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="↩動画に戻る"
-            android:minWidth="0dp" android:textSize="12sp"/>
-        <Button android:id="@+id/scanButton" android:layout_width="0dp"
-            android:layout_height="wrap_content" android:layout_weight="1" android:text="再生後に検出"/>
-        <Button android:id="@+id/pageAnalyzeButton" android:layout_width="0dp"
-            android:layout_height="wrap_content" android:layout_weight="1" android:text="ページURLで検索"/>
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:gravity="center_vertical" android:paddingStart="12dp" android:paddingEnd="12dp"
-        android:orientation="horizontal">
-        <Switch android:id="@+id/adBlockSwitch" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:checked="true"
-            android:textColor="#14213D" android:text="広告ブロック：ON"/>
-        <TextView android:layout_width="0dp" android:layout_weight="1"
-            android:layout_height="wrap_content" android:gravity="end"
-            android:textSize="11sp" android:textColor="#64748B"
-            android:text="再生不可ならOFF"/>
-        <Button android:id="@+id/originalPageButton" android:layout_width="wrap_content"
-            android:layout_height="40dp" android:minWidth="0dp"
-            android:textSize="12sp" android:text="前ページ"/>
-        <Button android:id="@+id/browserExitButton" android:layout_width="wrap_content"
-            android:layout_height="40dp" android:minWidth="0dp"
-            android:textSize="12sp" android:text="閉じる"/>
-    </LinearLayout>
-    <WebView android:id="@+id/browserWebView" android:layout_width="match_parent"
-        android:layout_height="0dp" android:layout_weight="1"/>
-    <TextView android:id="@+id/detectStatus" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:padding="8dp" android:textColor="#334155"
-        android:text="本編を再生してから候補を選んでください"/>
-    <ScrollView android:layout_width="match_parent" android:layout_height="230dp">
-        <LinearLayout android:id="@+id/detectedResults" android:orientation="vertical"
-            android:layout_width="match_parent" android:layout_height="wrap_content"/>
-    </ScrollView>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:orientation="vertical" android:background="#FFFFFF" android:layout_width="match_parent" android:layout_height="match_parent">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+  <EditText android:id="@+id/addressInput" android:layout_width="0dp" android:layout_weight="1" android:layout_height="44dp" android:inputType="textUri" android:singleLine="true" android:textSize="14sp" android:hint="動画ページのURL"/>
+  <Button android:id="@+id/goButton" android:layout_width="64dp" android:layout_height="44dp" android:minWidth="0dp" android:textSize="13sp" android:text="開く"/>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+  <Button android:id="@+id/browserBackButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="44dp" android:minWidth="0dp" android:textSize="13sp" android:text="←戻る"/>
+  <Button android:id="@+id/originalPageButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="44dp" android:minWidth="0dp" android:textSize="13sp" android:text="元の動画へ"/>
+  <Button android:id="@+id/browserExitButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="44dp" android:minWidth="0dp" android:textSize="13sp" android:text="閉じる"/>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingEnd="8dp">
+  <Button android:id="@+id/scanButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="44dp" android:minWidth="0dp" android:textSize="13sp" android:text="動画を再検出"/>
+  <Switch android:id="@+id/adBlockSwitch" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" android:textSize="13sp" android:text="広告ブロックON"/>
+ </LinearLayout>
+ <WebView android:id="@+id/browserWebView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+ <TextView android:id="@+id/detectStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="7dp" android:textSize="13sp" android:textColor="#334155" android:text="動画を再生すると自動で検出します"/>
+ <ScrollView android:id="@+id/browserResultsScroll" android:layout_width="match_parent" android:layout_height="140dp" android:visibility="gone">
+  <LinearLayout android:id="@+id/detectedResults" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+ </ScrollView>
+ <Button android:id="@+id/pageAnalyzeButton" android:layout_width="match_parent" android:layout_height="36dp" android:minHeight="0dp" android:text="URLから検索（補助）" android:textSize="12sp" android:visibility="gone"/>
 </LinearLayout>
