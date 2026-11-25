@@ -75,31 +75,40 @@ class BrowserActivity : Activity() {
      * popup, 5 redirects, or location.replace wiped WebView history. Never
      * silently finish the whole browser; use the explicit Close button.
      */
+    /** Standard Back visits the immediately previous page and never exits. */
     private fun goBackSafely() {
-        val root = userRequestedPage
-        if (root.isBlank()) {
-            if (web.canGoBack()) web.goBack()
-            else status.text = "前のページがありません。「閉じる」でブラウザを終了できます。"
+        if (web.canGoBack()) {
+            web.goBack()
+            status.text = "前のページに戻っています。"
             return
         }
-        val current = web.url.orEmpty()
-        if (!BrowserReturnLogic.isDifferentPage(root, current)) {
-            status.text = "元の動画ページです。ブラウザを終了する場合は「閉じる」を押してください。"
+        if (BrowserReturnLogic.isDifferentPage(userRequestedPage, web.url.orEmpty())) {
+            restoreOriginalPage(force = true)
+        } else {
+            status.text = "戻る履歴がありません。終了は「閉じる」を押してください。"
+        }
+    }
+
+    /** A separate one-tap escape from any ad redirect chain. */
+    private fun goHomeSafely() {
+        val root = userRequestedPage
+        if (root.isBlank()) {
+            status.text = "元の動画ページが指定されていません。"
+            return
+        }
+        if (!BrowserReturnLogic.isDifferentPage(root, web.url.orEmpty())) {
+            status.text = "元の動画ページを表示中です。"
             return
         }
         val history = web.copyBackForwardList()
-        val historyUrls = (0 until history.size).map {
-            history.getItemAtIndex(it)?.url.orEmpty()
-        }
-        val offset = BrowserReturnLogic.findRootOffset(root, historyUrls, history.currentIndex)
-        resetHistoryOnReturn = true
+        val urls = (0 until history.size).map { history.getItemAtIndex(it)?.url.orEmpty() }
+        val offset = BrowserReturnLogic.findRootOffset(root, urls, history.currentIndex)
         approvedPlayerUrl = null
+        resetHistoryOnReturn = true
         if (offset != null && offset != 0) {
             web.goBackOrForward(offset)
-            status.text = "動画のページに戻っています。"
-        } else {
-            restoreOriginalPage(force = true)
-        }
+            status.text = "元の動画ページへ戻っています。"
+        } else restoreOriginalPage(force = true)
     }
 
     private fun restoreOriginalPage(force: Boolean = false) {
@@ -299,11 +308,7 @@ class BrowserActivity : Activity() {
             goBackSafely()
         }
         findViewById<Button>(R.id.originalPageButton).setOnClickListener {
-            if (web.canGoBack()) web.goBack()
-            else if (userRequestedPage.isNotBlank() &&
-                     BrowserReturnLogic.isDifferentPage(userRequestedPage, web.url.orEmpty()))
-                restoreOriginalPage(force = true)
-            else status.text = "前のページがありません。「動画に戻る」を使ってください。"
+            goHomeSafely()
         }
         findViewById<Button>(R.id.browserExitButton).setOnClickListener { finish() }
         intent.getStringExtra(KEY_PAGE)?.takeIf { it.isNotBlank() }?.let {
@@ -441,13 +446,17 @@ class BrowserActivity : Activity() {
         results.removeAllViews()
         val candidates = found.values.sortedWith(compareBy<Candidate> { verdict(it).order }
             .thenByDescending { it.priority })
+        findViewById<View>(R.id.browserResultsScroll).visibility =
+            if (candidates.isEmpty()) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.pageAnalyzeButton).visibility =
+            if (candidates.isEmpty()) View.GONE else View.VISIBLE
         val adCount = candidates.count { verdict(it) == AdClassification.Verdict.AD_SUSPECT }
         val mainCount = candidates.count { verdict(it) == AdClassification.Verdict.MAIN_LIKELY }
         status.text = when {
-            candidates.isEmpty() -> "まだ動画が見つかりません。本編を再生してから「再生後に検出」を押してください。"
-            mainCount > 0 -> "本編候補 ${mainCount}件（未確認）／広告の疑い ${adCount}件。保存前に内容を確認してください。"
-            adCount > 0 -> "候補 ${candidates.size}件（広告の疑い ${adCount}件）。広告が終わって本編が始まったら再検出してください。"
-            else -> "候補 ${candidates.size}件。候補をタップして画質を選び、そのまま保存できます。広告と本編は未確定です。"
+            candidates.isEmpty() -> "再生すると自動で動画を検出します。"
+            mainCount > 0 -> "動画候補 ${mainCount}件。選んで保存できます。"
+            adCount > 0 -> "候補 ${candidates.size}件。広告の可能性があるため確認してください。"
+            else -> "動画候補 ${candidates.size}件。タップして保存できます。"
         }
         candidates.take(35).forEachIndexed { index, item ->
             val uri = android.net.Uri.parse(item.url)
@@ -460,7 +469,7 @@ class BrowserActivity : Activity() {
                 setTextColor(Color.rgb(22, 47, 86))
                 textSize = 15f
                 text = "${index + 1}. 【${state.label}】${item.kind}$seconds\n$filename\n$host ・ ${item.origin}"
-                setPadding(16, 17, 16, 17)
+                setPadding(12, 11, 12, 11)
                 setBackgroundColor(if (state == AdClassification.Verdict.AD_SUSPECT)
                     Color.rgb(255, 246, 231)
                 else if (index % 2 == 0) Color.rgb(239, 245, 252) else Color.WHITE)
