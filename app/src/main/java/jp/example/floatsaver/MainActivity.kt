@@ -56,42 +56,29 @@ class MainActivity : Activity() {
     private var analyzeGeneration = 0
     private var pendingAnalysisUrl = ""
     private var knownVideoCandidate = false
-    private var panelUiScale = 1f
+    private var advancedOpen = false
+    private var moreOpen = false
 
     private fun dp(value: Int): Int = (resources.displayMetrics.density * value).toInt()
 
-    /** Spinner rows are created after initial inflation, so scale them too. */
+    /** Keep actual readable text instead of shrinking everything with the window. */
     private fun <T> scaledAdapter(values: List<T>): ArrayAdapter<T> =
         object : ArrayAdapter<T>(this, android.R.layout.simple_spinner_item, values) {
             init { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            private fun resizeText(view: View): View {
-                (view as? TextView)?.setTextSize(TypedValue.COMPLEX_UNIT_SP,
-                    maxOf(10f, 14f * panelUiScale))
+            private fun readable(view: View): View {
+                (view as? TextView)?.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                 return view
             }
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
-                resizeText(super.getView(position, convertView, parent))
+                readable(super.getView(position, convertView, parent))
             override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View =
-                resizeText(super.getDropDownView(position, convertView, parent))
+                readable(super.getDropDownView(position, convertView, parent))
         }
 
     private fun setupResizablePanel(shell: FrameLayout) {
         val prefs = getSharedPreferences("resizable_window", MODE_PRIVATE)
         val density = resources.displayMetrics.density
         val inset = dp(12)
-        val contentScaler = PanelUiScaler(findViewById(R.id.panelCard))
-
-        fun updateContents(width: Int, height: Int) {
-            val next = PanelUiScaleMath.factor(width, height, density)
-            if (abs(next - panelUiScale) < 0.012f) return
-            panelUiScale = next
-            contentScaler.apply(next)
-            if (::limitSpinner.isInitialized) {
-                listOf(limitSpinner, qualitySpinner, containerSpinner).forEach {
-                    (it.adapter as? BaseAdapter)?.notifyDataSetChanged()
-                }
-            }
-        }
         // FloatSaver is a compact Activity window, not a screen-sized dark backdrop.
         // FLAG_NOT_TOUCH_MODAL allows touches outside its actual window to go to Brave.
         window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -102,8 +89,8 @@ class MainActivity : Activity() {
 
         fun screenWidth() = resources.displayMetrics.widthPixels
         fun screenHeight() = resources.displayMetrics.heightPixels
-        fun minWidth() = minOf(dp(200), (screenWidth() - 2 * inset).coerceAtLeast(1))
-        fun minHeight() = minOf(dp(150), (screenHeight() - 2 * inset).coerceAtLeast(1))
+        fun minWidth() = minOf(dp(260), (screenWidth() - 2 * inset).coerceAtLeast(1))
+        fun minHeight() = minOf(dp(220), (screenHeight() - 2 * inset).coerceAtLeast(1))
         fun maxWidth() = (screenWidth() - 2 * inset).coerceAtLeast(1)
         fun maxHeight() = (screenHeight() - 2 * inset).coerceAtLeast(1)
 
@@ -123,7 +110,6 @@ class MainActivity : Activity() {
                 y = geometry.offsetY.roundToInt()
                 dimAmount = 0f
             }
-            updateContents(geometry.width, geometry.height)
         }
 
         fun currentGeometry() = PanelResizeMath.Geometry(
@@ -149,8 +135,8 @@ class MainActivity : Activity() {
         }
 
         fun defaultGeometry() = fitToScreen(PanelResizeMath.Geometry(
-            minOf(dp(280), maxWidth()),
-            minOf(dp(300), maxOf((screenHeight() * 0.40f).roundToInt(), minHeight())),
+            minOf(dp(304), maxWidth()),
+            minOf(dp(354), maxOf((screenHeight() * 0.44f).roundToInt(), minHeight())),
             0f, 0f
         ))
         val saved = PanelResizeMath.Geometry(
@@ -293,6 +279,20 @@ class MainActivity : Activity() {
             override fun afterTextChanged(s: Editable?) = Unit
         })
         findViewById<Button>(R.id.closeButton).setOnClickListener { finish() }
+        findViewById<Button>(R.id.advancedToggleButton).setOnClickListener {
+            advancedOpen = !advancedOpen
+            findViewById<View>(R.id.advancedOptions).visibility =
+                if (advancedOpen) View.VISIBLE else View.GONE
+            findViewById<Button>(R.id.advancedToggleButton).text =
+                if (advancedOpen) "画質・形式を閉じる ▴" else "画質・形式を選ぶ ▾"
+        }
+        findViewById<Button>(R.id.moreButton).setOnClickListener {
+            moreOpen = !moreOpen
+            findViewById<View>(R.id.moreSection).visibility =
+                if (moreOpen) View.VISIBLE else View.GONE
+            findViewById<Button>(R.id.moreButton).text =
+                if (moreOpen) "その他の設定を閉じる ▴" else "その他の設定 ▾"
+        }
         findViewById<Button>(R.id.stopFloatingButton).setOnClickListener {
             stopService(Intent(this, OverlayBubbleService::class.java))
             Toast.makeText(this, "フローティングを終了しました", Toast.LENGTH_SHORT).show()
@@ -481,7 +481,7 @@ class MainActivity : Activity() {
         analyzeButton.isEnabled = false
         workingBar.visibility = View.VISIBLE
         findViewById<Button>(R.id.fallbackBrowserButton).visibility = View.GONE
-        statusText.text = "動画・GIFを解析しています…"
+        statusText.text = "動画を確認しています…"
         val headerReferer = referer
         val headerAgent = userAgent
         val videoHint = knownVideoCandidate
@@ -506,7 +506,7 @@ class MainActivity : Activity() {
                             sec / 3600, (sec % 3600) / 60, sec % 60)}"
                     }
                     refreshChoices()
-                    statusText.text = "動画が見つかりました。画質を選んで保存してください。"
+                    statusText.text = "動画が見つかりました。そのまま保存できます。"
                     findViewById<Button>(R.id.fallbackBrowserButton).visibility = View.GONE
                     findViewById<ScrollView>(R.id.panelCard).post {
                         findViewById<ScrollView>(R.id.panelCard)
@@ -516,8 +516,7 @@ class MainActivity : Activity() {
                     titleText.text = "解析できませんでした"
                     durationText.text = "再生時間: ー"
                     refreshChoices()
-                    statusText.text = ErrorHints.describe(error) +
-                        " ここから再生画面で動画を探すこともできます。"
+                    statusText.text = ErrorHints.describe(error)
                     findViewById<Button>(R.id.fallbackBrowserButton).visibility = View.VISIBLE
                 }
             }
