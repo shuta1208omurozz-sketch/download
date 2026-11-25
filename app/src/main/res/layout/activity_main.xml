@@ -1,168 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/panelBackdrop"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@android:color/transparent">
-    <FrameLayout android:id="@+id/panelShell" android:layout_width="wrap_content"
-        android:layout_height="wrap_content" android:layout_gravity="center"
-        android:layout_margin="12dp" android:background="@drawable/panel_background"
-        android:elevation="10dp">
-        <ScrollView android:id="@+id/panelCard" android:layout_width="match_parent"
-            android:layout_height="match_parent" android:fillViewport="false">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:paddingStart="18dp" android:paddingTop="18dp"
-                android:paddingEnd="18dp" android:paddingBottom="52dp"
-                android:orientation="vertical">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal" android:gravity="center_vertical">
-                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                    android:layout_weight="1" android:text="FloatSaver" android:textSize="17sp"
-                    android:textColor="#14213D" android:textStyle="bold"
-                    android:singleLine="true"/>
-                <TextView android:id="@+id/panelMoveHandle"
-                    android:layout_width="36dp" android:layout_height="42dp"
-                    android:gravity="center" android:text="✥"
-                    android:textSize="24sp" android:textColor="#2456B8"
-                    android:contentDescription="ここをドラッグして小窓を移動"/>
-                <Button android:id="@+id/closeButton" android:layout_width="42dp"
-                    android:layout_height="42dp" android:minWidth="0dp"
-                    android:minHeight="0dp" android:padding="0dp" android:text="×"
-                    android:contentDescription="小窓を閉じる"/>
-            </LinearLayout>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <TextView android:id="@+id/versionText" android:layout_width="wrap_content"
-                    android:layout_height="40dp" android:gravity="center_vertical"
-                    android:textColor="#64748B" android:textSize="10sp"
-                    android:singleLine="true" android:text="v0.20"/>
-                <Button android:id="@+id/resetPanelSizeButton" android:layout_width="0dp"
-                    android:layout_weight="1" android:layout_height="40dp"
-                    android:minWidth="0dp" android:textSize="12sp" android:text="元サイズ"/>
-                <Button android:id="@+id/stopFloatingButton" android:layout_width="0dp"
-                    android:layout_weight="1" android:layout_height="40dp"
-                    android:minWidth="0dp" android:textSize="12sp" android:text="↓終了"
-                    android:textColor="#FFFFFF" android:backgroundTint="#B02A38"/>
-            </LinearLayout>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginBottom="5dp" android:textSize="12sp"
-                android:textColor="#475569" android:text="ブラウザで「共有 → FloatSaver」。URLコピーも対応。外側タップで閉じます。"/>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="1  動画のページを指定" android:textColor="#14213D"
-                android:textSize="17sp" android:textStyle="bold"/>
-            <EditText android:id="@+id/urlInput" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:layout_marginTop="5dp"
-                android:inputType="textUri" android:singleLine="true" android:minHeight="48dp"
-                android:hint="URLを入力・貼り付け" android:textColor="#14213D"/>
-            <Button android:id="@+id/braveUrlButton" android:layout_width="match_parent"
-                android:layout_height="44dp" android:text="ブラウザのURLを自動取得"/>
-            <TextView android:id="@+id/urlCaptureStatus" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:textSize="11sp"
-                android:paddingStart="8dp" android:paddingEnd="8dp"
-                android:textColor="#64748B" android:text="自動取得：設定確認中"/>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <Button android:id="@+id/pasteButton" android:layout_width="0dp"
-                    android:layout_height="48dp" android:layout_weight="1" android:minWidth="0dp"
-                    android:textSize="12sp" android:text="コピーURLを調べる"/>
-                <Button android:id="@+id/analyzeButton" android:layout_width="0dp"
-                    android:layout_height="48dp" android:layout_weight="1" android:minWidth="0dp"
-                    android:textSize="12sp" android:text="動画を調べる"/>
-            </LinearLayout>
-            <ProgressBar android:id="@+id/workingBar"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent" android:layout_height="4dp"
-                android:indeterminate="true" android:visibility="gone"/>
-            <TextView android:id="@+id/statusText" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:padding="10dp"
-                android:layout_marginTop="6dp" android:background="#EFF5FF"
-                android:textSize="13sp" android:textColor="#334155"
-                android:text="ブラウザから共有・コピー、またはURLを入力してください。"/>
-            <Button android:id="@+id/fallbackBrowserButton" android:layout_width="match_parent"
-                android:layout_height="48dp" android:visibility="gone"
-                android:text="再生して動画を探す"/>
-            <LinearLayout android:id="@+id/selectionSection" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:orientation="vertical"
-                android:visibility="gone" android:layout_marginTop="13dp">
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="2  画質と保存形式を選択" android:textSize="17sp"
-                    android:textStyle="bold" android:textColor="#14213D"/>
-                <TextView android:id="@+id/titleText" android:layout_width="match_parent"
-                    android:layout_height="wrap_content" android:layout_marginTop="7dp"
-                    android:text="動画情報" android:textStyle="bold" android:textColor="#14213D"
-                    android:textSize="15sp"/>
-                <TextView android:id="@+id/durationText" android:layout_width="match_parent"
-                    android:layout_height="wrap_content" android:layout_marginTop="3dp"
-                    android:text="再生時間: ー" android:textColor="#475569"/>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="9dp" android:text="容量の目安で絞り込む（任意）"
-                    android:textStyle="bold" android:textColor="#14213D"/>
-                <Spinner android:id="@+id/limitSpinner" android:layout_width="match_parent"
-                    android:layout_height="48dp"/>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="画質" android:textStyle="bold" android:textColor="#14213D"/>
-                <Spinner android:id="@+id/qualitySpinner" android:layout_width="match_parent"
-                    android:layout_height="48dp"/>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="保存形式" android:textStyle="bold" android:textColor="#14213D"/>
-                <Spinner android:id="@+id/containerSpinner" android:layout_width="match_parent"
-                    android:layout_height="48dp"/>
-                <TextView android:id="@+id/sizeNote" android:layout_width="match_parent"
-                    android:layout_height="wrap_content" android:layout_marginTop="5dp"
-                    android:textSize="12sp" android:textColor="#64748B"
-                    android:text="ファイルサイズは推定の場合があります。"/>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp" android:text="3  保存する"
-                    android:textSize="17sp" android:textStyle="bold" android:textColor="#14213D"/>
-                <Button android:id="@+id/downloadButton" android:layout_width="match_parent"
-                    android:layout_height="56dp" android:enabled="false"
-                    android:text="この設定でダウンロード"/>
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                    android:text="保存先：Download/FloatSaver   進捗は通知から確認できます"
-                    android:textSize="12sp" android:textColor="#64748B"/>
-            </LinearLayout>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="14dp" android:text="ほかの操作" android:textColor="#14213D"
-                android:textStyle="bold"/>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <Button android:id="@+id/browserButton" android:layout_width="0dp"
-                    android:layout_height="48dp" android:layout_weight="1"
-                    android:text="再生して動画を探す"/>
-                <Button android:id="@+id/historyButton" android:layout_width="0dp"
-                    android:layout_height="48dp" android:layout_weight="1"
-                    android:text="保存履歴"/>
-            </LinearLayout>
-            <Button android:id="@+id/overlayButton" android:layout_width="match_parent"
-                android:layout_height="48dp" android:text="画面上にボタンを表示"/>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="3dp" android:textSize="12sp" android:textColor="#64748B"
-                android:text="※ 他アプリ内の動画を無断で監視しません。サイトや保護方式により保存できない場合があります。"/>
-            </LinearLayout>
-        </ScrollView>
-        <TextView android:id="@+id/resizeRightHandle"
-            android:layout_width="24dp" android:layout_height="70dp"
-            android:layout_gravity="end|center_vertical"
-            android:gravity="center" android:text="↔" android:textSize="20sp"
-            android:textColor="#2456B8" android:background="#DCE9FF"
-            android:contentDescription="右端をドラッグして横幅を変更"/>
-        <TextView android:id="@+id/resizeBottomHandle"
-            android:layout_width="90dp" android:layout_height="24dp"
-            android:layout_gravity="bottom|center_horizontal"
-            android:gravity="center" android:text="↕" android:textSize="20sp"
-            android:textColor="#2456B8" android:background="#DCE9FF"
-            android:contentDescription="下端をドラッグして高さを変更"/>
-        <TextView android:id="@+id/resizeBottomLeftHandle"
-            android:layout_width="42dp" android:layout_height="42dp"
-            android:layout_gravity="bottom|start"
-            android:gravity="center" android:text="↙" android:textSize="25sp"
-            android:textColor="#2456B8" android:background="#C3D9FF"
-            android:contentDescription="左下角を斜めにドラッグして小窓のサイズを変更"/>
-        <TextView android:id="@+id/resizeCornerHandle"
-            android:layout_width="42dp" android:layout_height="42dp"
-            android:layout_gravity="bottom|end"
-            android:gravity="center" android:text="↘" android:textSize="25sp"
-            android:textColor="#2456B8" android:background="#C3D9FF"
-            android:contentDescription="右下角を斜めにドラッグして小窓のサイズを変更"/>
-    </FrameLayout>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/panelBackdrop" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@android:color/transparent">
+  <FrameLayout android:id="@+id/panelShell" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:layout_margin="12dp" android:background="@drawable/panel_background" android:elevation="8dp">
+    <ScrollView android:id="@+id/panelCard" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="false">
+      <LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingStart="16dp" android:paddingEnd="24dp" android:paddingTop="8dp" android:paddingBottom="46dp">
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="44dp" android:gravity="center_vertical">
+          <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="FloatSaver" android:textSize="18sp" android:textStyle="bold" android:textColor="#14213D"/>
+          <TextView android:id="@+id/panelMoveHandle" android:layout_width="40dp" android:layout_height="44dp" android:text="⠿" android:textSize="23sp" android:gravity="center" android:textColor="#3967B7" android:contentDescription="ドラッグして小窓を動かす"/>
+          <Button android:id="@+id/closeButton" android:layout_width="42dp" android:layout_height="42dp" android:minWidth="0dp" android:minHeight="0dp" android:padding="0dp" android:text="×" android:textSize="19sp" android:contentDescription="小窓を閉じる"/>
+        </LinearLayout>
+        <EditText android:id="@+id/urlInput" android:layout_width="match_parent" android:layout_height="44dp" android:minHeight="0dp" android:singleLine="true" android:inputType="textUri" android:hint="動画ページのURL" android:textSize="14sp" android:textColor="#14213D"/>
+        <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content">
+          <Button android:id="@+id/braveUrlButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="44dp" android:minWidth="0dp" android:text="ページ取得" android:textSize="13sp"/>
+          <Button android:id="@+id/pasteButton" android:layout_width="0dp" android:layout_weight="1" android:layout_height="44dp" android:minWidth="0dp" android:text="URLを貼る" android:textSize="13sp"/>
+        </LinearLayout>
+        <Button android:id="@+id/analyzeButton" android:layout_width="match_parent" android:layout_height="46dp" android:text="動画を調べる" android:textSize="15sp" android:textColor="#FFFFFF" android:backgroundTint="#2563EB"/>
+        <ProgressBar android:id="@+id/workingBar" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="3dp" android:indeterminate="true" android:visibility="gone"/>
+        <TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="7dp" android:textSize="13sp" android:textColor="#43516A" android:text="ページを取得するか、URLを貼り付けてください。"/>
+        <LinearLayout android:id="@+id/selectionSection" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+          <TextView android:id="@+id/titleText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="動画情報" android:textSize="14sp" android:maxLines="2" android:ellipsize="end" android:textStyle="bold" android:textColor="#14213D"/>
+          <TextView android:id="@+id/durationText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="再生時間：不明" android:textSize="13sp" android:textColor="#64748B"/>
+          <Button android:id="@+id/downloadButton" android:layout_width="match_parent" android:layout_height="46dp" android:enabled="false" android:text="この画質で保存" android:textSize="15sp" android:textColor="#FFFFFF" android:backgroundTint="#2563EB"/>
+          <Button android:id="@+id/advancedToggleButton" android:layout_width="match_parent" android:layout_height="40dp" android:text="画質・形式を選ぶ ▾" android:textSize="13sp"/>
+          <LinearLayout android:id="@+id/advancedOptions" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="画質" android:textSize="13sp"/>
+            <Spinner android:id="@+id/qualitySpinner" android:layout_width="match_parent" android:layout_height="44dp"/>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="容量の上限" android:textSize="13sp"/>
+            <Spinner android:id="@+id/limitSpinner" android:layout_width="match_parent" android:layout_height="44dp"/>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="保存形式" android:textSize="13sp"/>
+            <Spinner android:id="@+id/containerSpinner" android:layout_width="match_parent" android:layout_height="44dp"/>
+            <TextView android:id="@+id/sizeNote" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#64748B"/>
+          </LinearLayout>
+        </LinearLayout>
+        <Button android:id="@+id/browserButton" android:layout_width="match_parent" android:layout_height="44dp" android:text="▶ 再生して動画を探す" android:textSize="14sp"/>
+        <Button android:id="@+id/fallbackBrowserButton" android:layout_width="match_parent" android:layout_height="44dp" android:visibility="gone" android:text="▶ 再生画面で探す" android:textSize="14sp"/>
+        <Button android:id="@+id/moreButton" android:layout_width="match_parent" android:layout_height="40dp" android:text="その他の設定 ▾" android:textSize="13sp"/>
+        <LinearLayout android:id="@+id/moreSection" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone">
+          <TextView android:id="@+id/urlCaptureStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#64748B"/>
+          <Button android:id="@+id/historyButton" android:layout_width="match_parent" android:layout_height="42dp" android:text="保存履歴" android:textSize="13sp"/>
+          <Button android:id="@+id/overlayButton" android:layout_width="match_parent" android:layout_height="42dp" android:text="フローティング設定" android:textSize="13sp"/>
+          <Button android:id="@+id/resetPanelSizeButton" android:layout_width="match_parent" android:layout_height="42dp" android:text="小窓の大きさ・位置を戻す" android:textSize="13sp"/>
+          <Button android:id="@+id/stopFloatingButton" android:layout_width="match_parent" android:layout_height="42dp" android:text="フローティングを終了" android:textSize="13sp"/>
+          <TextView android:id="@+id/versionText" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="v0.22" android:textSize="11sp" android:gravity="center_horizontal" android:textColor="#64748B"/>
+        </LinearLayout>
+      </LinearLayout>
+    </ScrollView>
+    <TextView android:id="@+id/resizeRightHandle" android:layout_width="24dp" android:layout_height="68dp" android:layout_gravity="end|center_vertical" android:gravity="center" android:text="↔" android:textSize="20sp" android:background="#E1ECFF" android:textColor="#2456B8" android:contentDescription="右端をドラッグして横幅を変更"/>
+    <TextView android:id="@+id/resizeBottomHandle" android:layout_width="80dp" android:layout_height="24dp" android:layout_gravity="bottom|center_horizontal" android:gravity="center" android:text="↕" android:textSize="20sp" android:background="#E1ECFF" android:textColor="#2456B8" android:contentDescription="下端をドラッグして高さを変更"/>
+    <TextView android:id="@+id/resizeBottomLeftHandle" android:layout_width="42dp" android:layout_height="42dp" android:layout_gravity="bottom|start" android:gravity="center" android:text="↙" android:textSize="23sp" android:background="#C3D9FF" android:textColor="#2456B8" android:contentDescription="左下角から大きさを変更"/>
+    <TextView android:id="@+id/resizeCornerHandle" android:layout_width="42dp" android:layout_height="42dp" android:layout_gravity="bottom|end" android:gravity="center" android:text="↘" android:textSize="23sp" android:background="#C3D9FF" android:textColor="#2456B8" android:contentDescription="右下角から大きさを変更"/>
+  </FrameLayout>
 </FrameLayout>
